@@ -1,0 +1,12 @@
+virtualFile/target/*
+fsHandlerWasi/target/*
+# !/tft/target/
+# /tft/target/*
+# # Except the app directory
+# !/tft/target/wasm32-unknown-unknown/
+# /tft/target/wasm32-unknown-unknown/*
+# # Except the public directory inside app
+# !/tft/target/wasm32-unknown-unknown/release/
+
+# /tft/target/wasm32-unknown-unknown/release/*
+# !/tft/target/wasm32-unknown-unknown/release/tft.wasm

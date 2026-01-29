@@ -1,0 +1,17 @@
+[package]
+name = "virtualFile"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.38.1", features = ["full"] }
+tokio-tungstenite = "0.23.1"
+futures = "0.3.30"
+wasmtime = "38.0.4"
+wasmtime-wasi = "38.0.4"
+
+lazy_static = "1.5.0"
+serde = "1.0.228"
+serde_json = "1.0.148"
+fs_handler_wasi = { path = "../fsHandlerWasi" }
+time = "0.3.45"

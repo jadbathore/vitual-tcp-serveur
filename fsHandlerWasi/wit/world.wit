@@ -1,0 +1,21 @@
+package component:fs-handler-wasi;
+
+
+
+// interface types {
+//     resource buffercollection {
+//         constructor(init: list<u8>);
+//         get: func()-> list<u8>;
+//     }
+// }
+
+world example {
+    // export types;
+
+    // use types.{buffercollection};
+    export resolve-request : func() -> list<string>;
+    export file-handle-payloads : func(buffer:list<string>)->list<string>;
+    export file-handle-data : func(buffer:list<string>)->list<list<u8>>;
+}
+
+

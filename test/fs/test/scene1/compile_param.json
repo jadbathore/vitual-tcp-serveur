@@ -1,0 +1,14 @@
+{
+    "usingWasm":false,
+    "dependencies": {
+        "THREE":{
+            "src":"three",
+            "type":"default"
+        },
+        "OrbitControls":{
+            "src":"three/examples/jsm/controls/OrbitControls.js",
+            "type":"multi",
+            "keys":["OrbitControls"]
+        }
+    }
+}
