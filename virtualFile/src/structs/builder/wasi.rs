@@ -95,7 +95,13 @@ where
     fn build(&mut self,func_name:&str)-> Result<TypedFunc<P,R>, Box<dyn Error>>
     {
         if let (Some(instance),Some(store)) = (self.instance,&mut self.store){
-            general::call_wasi_resolve::<P,R>(instance,store, func_name)
+            if let Some(func) = instance.get_func(&mut *store, func_name) {
+                let typed:TypedFunc<P,R> = func.typed(&store)?;
+                Ok(typed)
+            } else {
+                let msg = "unknown function ".to_string() +  func_name;
+                Err(Box::new(GlobalError::ParseError(msg)))
+            }
         } else {
             Err(Box::new(GlobalError::UninitializedVariable))
         }

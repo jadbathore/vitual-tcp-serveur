@@ -1,5 +1,6 @@
 virtualFile/target/*
 fsHandlerWasi/target/*
+bin.sh
 # !/tft/target/
 # /tft/target/*
 # # Except the app directory

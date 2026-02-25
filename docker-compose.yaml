@@ -1,6 +1,8 @@
 services:
   virtual-front-end:
-    container_name: ${CONTAINER_NAME}
+    container_name: "vfs-test"
+    image: "virtual-front-end"
+    working_dir: /tcp-server/virtualFile
     ports:
       - "8080:8080" 
     build:
@@ -8,9 +10,10 @@ services:
       dockerfile: ./dockerfile
       platforms:
         - linux/arm64
-      args:
-        TAG: ${TAG}
-    command: ["cd tcp-server/virtualFile && ./"]
+    #   args:
+    #     VFS_DIR: "../test"
+    # command: ["cd", "./tcp-server/virtualFile/","&&","VFS_DIR=../../tmp cargo run"]
+    command: sh -c "VFS_DIR=../test cargo run"
     # volumes:
     #   - ${PROJECT_ROOT:-.}/${ENTRY}:/${ENTRY}
     #   - ${PROJECT_ROOT:-.}/.env:/.env

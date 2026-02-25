@@ -3,259 +3,23 @@
 //   * runtime_path: "wit_bindgen_rt"
 #[doc(hidden)]
 #[allow(non_snake_case)]
-pub unsafe fn _export_resolve_request_cabi<T: Guest>() -> *mut u8 {
+pub unsafe fn _export_ta0043_cabi<T: Guest>() {
     #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-    let result0 = T::resolve_request();
-    let ptr1 = (&raw mut _RET_AREA.0).cast::<u8>();
-    let vec3 = result0;
-    let len3 = vec3.len();
-    let layout3 = _rt::alloc::Layout::from_size_align_unchecked(
-        vec3.len() * (2 * ::core::mem::size_of::<*const u8>()),
-        ::core::mem::size_of::<*const u8>(),
-    );
-    let result3 = if layout3.size() != 0 {
-        let ptr = _rt::alloc::alloc(layout3).cast::<u8>();
-        if ptr.is_null() {
-            _rt::alloc::handle_alloc_error(layout3);
-        }
-        ptr
-    } else {
-        ::core::ptr::null_mut()
-    };
-    for (i, e) in vec3.into_iter().enumerate() {
-        let base = result3.add(i * (2 * ::core::mem::size_of::<*const u8>()));
-        {
-            let vec2 = (e.into_bytes()).into_boxed_slice();
-            let ptr2 = vec2.as_ptr().cast::<u8>();
-            let len2 = vec2.len();
-            ::core::mem::forget(vec2);
-            *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len2;
-            *base.add(0).cast::<*mut u8>() = ptr2.cast_mut();
-        }
-    }
-    *ptr1.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len3;
-    *ptr1.add(0).cast::<*mut u8>() = result3;
-    ptr1
-}
-#[doc(hidden)]
-#[allow(non_snake_case)]
-pub unsafe fn __post_return_resolve_request<T: Guest>(arg0: *mut u8) {
-    let l0 = *arg0.add(0).cast::<*mut u8>();
-    let l1 = *arg0.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let base4 = l0;
-    let len4 = l1;
-    for i in 0..len4 {
-        let base = base4.add(i * (2 * ::core::mem::size_of::<*const u8>()));
-        {
-            let l2 = *base.add(0).cast::<*mut u8>();
-            let l3 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
-            _rt::cabi_dealloc(l2, l3, 1);
-        }
-    }
-    _rt::cabi_dealloc(
-        base4,
-        len4 * (2 * ::core::mem::size_of::<*const u8>()),
-        ::core::mem::size_of::<*const u8>(),
-    );
-}
-#[doc(hidden)]
-#[allow(non_snake_case)]
-pub unsafe fn _export_file_handle_payloads_cabi<T: Guest>(
-    arg0: *mut u8,
-    arg1: usize,
-) -> *mut u8 {
-    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-    let base3 = arg0;
-    let len3 = arg1;
-    let mut result3 = _rt::Vec::with_capacity(len3);
-    for i in 0..len3 {
-        let base = base3.add(i * (2 * ::core::mem::size_of::<*const u8>()));
-        let e3 = {
-            let l0 = *base.add(0).cast::<*mut u8>();
-            let l1 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
-            let len2 = l1;
-            let bytes2 = _rt::Vec::from_raw_parts(l0.cast(), len2, len2);
-            _rt::string_lift(bytes2)
-        };
-        result3.push(e3);
-    }
-    _rt::cabi_dealloc(
-        base3,
-        len3 * (2 * ::core::mem::size_of::<*const u8>()),
-        ::core::mem::size_of::<*const u8>(),
-    );
-    let result4 = T::file_handle_payloads(result3);
-    let ptr5 = (&raw mut _RET_AREA.0).cast::<u8>();
-    let vec7 = result4;
-    let len7 = vec7.len();
-    let layout7 = _rt::alloc::Layout::from_size_align_unchecked(
-        vec7.len() * (2 * ::core::mem::size_of::<*const u8>()),
-        ::core::mem::size_of::<*const u8>(),
-    );
-    let result7 = if layout7.size() != 0 {
-        let ptr = _rt::alloc::alloc(layout7).cast::<u8>();
-        if ptr.is_null() {
-            _rt::alloc::handle_alloc_error(layout7);
-        }
-        ptr
-    } else {
-        ::core::ptr::null_mut()
-    };
-    for (i, e) in vec7.into_iter().enumerate() {
-        let base = result7.add(i * (2 * ::core::mem::size_of::<*const u8>()));
-        {
-            let vec6 = (e.into_bytes()).into_boxed_slice();
-            let ptr6 = vec6.as_ptr().cast::<u8>();
-            let len6 = vec6.len();
-            ::core::mem::forget(vec6);
-            *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len6;
-            *base.add(0).cast::<*mut u8>() = ptr6.cast_mut();
-        }
-    }
-    *ptr5.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len7;
-    *ptr5.add(0).cast::<*mut u8>() = result7;
-    ptr5
-}
-#[doc(hidden)]
-#[allow(non_snake_case)]
-pub unsafe fn __post_return_file_handle_payloads<T: Guest>(arg0: *mut u8) {
-    let l0 = *arg0.add(0).cast::<*mut u8>();
-    let l1 = *arg0.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let base4 = l0;
-    let len4 = l1;
-    for i in 0..len4 {
-        let base = base4.add(i * (2 * ::core::mem::size_of::<*const u8>()));
-        {
-            let l2 = *base.add(0).cast::<*mut u8>();
-            let l3 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
-            _rt::cabi_dealloc(l2, l3, 1);
-        }
-    }
-    _rt::cabi_dealloc(
-        base4,
-        len4 * (2 * ::core::mem::size_of::<*const u8>()),
-        ::core::mem::size_of::<*const u8>(),
-    );
-}
-#[doc(hidden)]
-#[allow(non_snake_case)]
-pub unsafe fn _export_file_handle_data_cabi<T: Guest>(
-    arg0: *mut u8,
-    arg1: usize,
-) -> *mut u8 {
-    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-    let base3 = arg0;
-    let len3 = arg1;
-    let mut result3 = _rt::Vec::with_capacity(len3);
-    for i in 0..len3 {
-        let base = base3.add(i * (2 * ::core::mem::size_of::<*const u8>()));
-        let e3 = {
-            let l0 = *base.add(0).cast::<*mut u8>();
-            let l1 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
-            let len2 = l1;
-            let bytes2 = _rt::Vec::from_raw_parts(l0.cast(), len2, len2);
-            _rt::string_lift(bytes2)
-        };
-        result3.push(e3);
-    }
-    _rt::cabi_dealloc(
-        base3,
-        len3 * (2 * ::core::mem::size_of::<*const u8>()),
-        ::core::mem::size_of::<*const u8>(),
-    );
-    let result4 = T::file_handle_data(result3);
-    let ptr5 = (&raw mut _RET_AREA.0).cast::<u8>();
-    let vec7 = result4;
-    let len7 = vec7.len();
-    let layout7 = _rt::alloc::Layout::from_size_align_unchecked(
-        vec7.len() * (2 * ::core::mem::size_of::<*const u8>()),
-        ::core::mem::size_of::<*const u8>(),
-    );
-    let result7 = if layout7.size() != 0 {
-        let ptr = _rt::alloc::alloc(layout7).cast::<u8>();
-        if ptr.is_null() {
-            _rt::alloc::handle_alloc_error(layout7);
-        }
-        ptr
-    } else {
-        ::core::ptr::null_mut()
-    };
-    for (i, e) in vec7.into_iter().enumerate() {
-        let base = result7.add(i * (2 * ::core::mem::size_of::<*const u8>()));
-        {
-            let vec6 = (e).into_boxed_slice();
-            let ptr6 = vec6.as_ptr().cast::<u8>();
-            let len6 = vec6.len();
-            ::core::mem::forget(vec6);
-            *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len6;
-            *base.add(0).cast::<*mut u8>() = ptr6.cast_mut();
-        }
-    }
-    *ptr5.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len7;
-    *ptr5.add(0).cast::<*mut u8>() = result7;
-    ptr5
-}
-#[doc(hidden)]
-#[allow(non_snake_case)]
-pub unsafe fn __post_return_file_handle_data<T: Guest>(arg0: *mut u8) {
-    let l0 = *arg0.add(0).cast::<*mut u8>();
-    let l1 = *arg0.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
-    let base5 = l0;
-    let len5 = l1;
-    for i in 0..len5 {
-        let base = base5.add(i * (2 * ::core::mem::size_of::<*const u8>()));
-        {
-            let l2 = *base.add(0).cast::<*mut u8>();
-            let l3 = *base.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
-            let base4 = l2;
-            let len4 = l3;
-            _rt::cabi_dealloc(base4, len4 * 1, 1);
-        }
-    }
-    _rt::cabi_dealloc(
-        base5,
-        len5 * (2 * ::core::mem::size_of::<*const u8>()),
-        ::core::mem::size_of::<*const u8>(),
-    );
+    T::ta0043();
 }
 pub trait Guest {
-    /// export types;
-    /// use types.{buffercollection};
-    fn resolve_request() -> _rt::Vec<_rt::String>;
-    fn file_handle_payloads(buffer: _rt::Vec<_rt::String>) -> _rt::Vec<_rt::String>;
-    fn file_handle_data(buffer: _rt::Vec<_rt::String>) -> _rt::Vec<_rt::Vec<u8>>;
+    fn ta0043() -> ();
 }
 #[doc(hidden)]
 macro_rules! __export_world_example_cabi {
     ($ty:ident with_types_in $($path_to_types:tt)*) => {
-        const _ : () = { #[unsafe (export_name = "resolve-request")] unsafe extern "C" fn
-        export_resolve_request() -> * mut u8 { unsafe { $($path_to_types)*::
-        _export_resolve_request_cabi::<$ty > () } } #[unsafe (export_name =
-        "cabi_post_resolve-request")] unsafe extern "C" fn
-        _post_return_resolve_request(arg0 : * mut u8,) { unsafe { $($path_to_types)*::
-        __post_return_resolve_request::<$ty > (arg0) } } #[unsafe (export_name =
-        "file-handle-payloads")] unsafe extern "C" fn export_file_handle_payloads(arg0 :
-        * mut u8, arg1 : usize,) -> * mut u8 { unsafe { $($path_to_types)*::
-        _export_file_handle_payloads_cabi::<$ty > (arg0, arg1) } } #[unsafe (export_name
-        = "cabi_post_file-handle-payloads")] unsafe extern "C" fn
-        _post_return_file_handle_payloads(arg0 : * mut u8,) { unsafe {
-        $($path_to_types)*:: __post_return_file_handle_payloads::<$ty > (arg0) } }
-        #[unsafe (export_name = "file-handle-data")] unsafe extern "C" fn
-        export_file_handle_data(arg0 : * mut u8, arg1 : usize,) -> * mut u8 { unsafe {
-        $($path_to_types)*:: _export_file_handle_data_cabi::<$ty > (arg0, arg1) } }
-        #[unsafe (export_name = "cabi_post_file-handle-data")] unsafe extern "C" fn
-        _post_return_file_handle_data(arg0 : * mut u8,) { unsafe { $($path_to_types)*::
-        __post_return_file_handle_data::<$ty > (arg0) } } };
+        const _ : () = { #[unsafe (export_name = "TA0043")] unsafe extern "C" fn
+        export_ta0043() { unsafe { $($path_to_types)*:: _export_ta0043_cabi::<$ty > () }
+        } };
     };
 }
 #[doc(hidden)]
 pub(crate) use __export_world_example_cabi;
-#[cfg_attr(target_pointer_width = "64", repr(align(8)))]
-#[cfg_attr(target_pointer_width = "32", repr(align(4)))]
-struct _RetArea([::core::mem::MaybeUninit<u8>; 2 * ::core::mem::size_of::<*const u8>()]);
-static mut _RET_AREA: _RetArea = _RetArea(
-    [::core::mem::MaybeUninit::uninit(); 2 * ::core::mem::size_of::<*const u8>()],
-);
 #[rustfmt::skip]
 mod _rt {
     #![allow(dead_code, clippy::all)]
@@ -263,24 +27,6 @@ mod _rt {
     pub fn run_ctors_once() {
         wit_bindgen_rt::run_ctors_once();
     }
-    pub use alloc_crate::alloc;
-    pub unsafe fn cabi_dealloc(ptr: *mut u8, size: usize, align: usize) {
-        if size == 0 {
-            return;
-        }
-        let layout = alloc::Layout::from_size_align_unchecked(size, align);
-        alloc::dealloc(ptr, layout);
-    }
-    pub use alloc_crate::vec::Vec;
-    pub use alloc_crate::string::String;
-    pub unsafe fn string_lift(bytes: Vec<u8>) -> String {
-        if cfg!(debug_assertions) {
-            String::from_utf8(bytes).unwrap()
-        } else {
-            String::from_utf8_unchecked(bytes)
-        }
-    }
-    extern crate alloc as alloc_crate;
 }
 /// Generates `#[unsafe(no_mangle)]` functions to export the specified type as
 /// the root implementation of all generated traits.
@@ -317,13 +63,11 @@ pub(crate) use __export_example_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 276] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x96\x01\x01A\x02\x01\
-A\x09\x01ps\x01@\0\0\0\x04\0\x0fresolve-request\x01\x01\x01@\x01\x06buffer\0\0\0\
-\x04\0\x14file-handle-payloads\x01\x02\x01p}\x01p\x03\x01@\x01\x06buffer\0\0\x04\
-\x04\0\x10file-handle-data\x01\x05\x04\0!component:fs-handler-wasi/example\x04\0\
-\x0b\x0d\x01\0\x07example\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit\
--component\x070.227.1\x10wit-bindgen-rust\x060.41.0";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 185] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07<\x01A\x02\x01A\x02\x01\
+@\0\x01\0\x04\0\x06TA0043\x01\0\x04\0!component:fs-handler-wasi/example\x04\0\x0b\
+\x0d\x01\0\x07example\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-com\
+ponent\x070.227.1\x10wit-bindgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

@@ -1,8 +1,6 @@
 use std::error::Error;
 
-use wasmtime::{Store, component::{Instance, TypedFunc}};
-
-use crate::{enums::errors::GlobalError, structs::{builder::wasi::WasiBuild, states::WasiState}};
+use wasmtime::component::TypedFunc;
 
 pub trait WasiUtilsBuild<P,R>
     where 
@@ -16,11 +14,11 @@ pub trait WasiUtilsBuild<P,R>
     fn set_engine(&mut self);
     fn set_linker(&mut self)->Result<(), Box<dyn Error>>;
     fn set_store(&mut self)->Result<(), Box<dyn Error>>;
-    // fn set_wasi_ctx(&mut self)->Result<(), Box<dyn Error>>;
     fn set_component(&mut self)->Result<(), Box<dyn Error>>;
     fn set_instance(&mut self)->Result<(), Box<dyn Error>>;
     fn build(&mut self,func_name:&str)->Result<TypedFunc<P,R>, Box<dyn Error>>;
 }
+
 
 
 
