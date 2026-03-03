@@ -1,29 +1,35 @@
 #[allow(warnings)]
 mod bindings;
-pub mod structs;
-mod traits;
-mod enums;
-mod strategy;
-mod buffers;
 
-// use std::{fs::{self, DirEntry, File}, path::{Path, PathBuf}};
-use lazy_static::lazy_static;
-use std::sync::{Arc,OnceLock};
-use virtualFile;
-// use crate::{
-//     // bindings::exports::component::fs_handler_wasi::types::{ GuestBuffercollection}, 
-//     // bindings::component::fs_handler_wasi::types::Buffercollection,
-//     structs::{collection::PayloadCollection, fs_resolve::Resolve, json_struct::{self, JsonInfo}, payload_request::{self,  DataFile}}, traits::fs_read::FileReader
-// };
-
+mod utils;
+pub mod commun_utils;
 use bindings::Guest;
+use regex::Regex;
+use std::{collections, error::Error, path::{Path, PathBuf}};
+
+use crate::{
+    commun_utils::{item::FileReader, read_strategies::{self, ReadStrategy, recursive_file_read}}, 
+    utils::payload_collection::{Collection, DataIterator, DataCollection}
+};
+
+
 struct Component;
 
 
-lazy_static! (
-    static ref CACHE_PAYLOADS:Arc<CacheCollection> = OnceLock::new();
-    static ref PAYLOADS:Arc<PayloadCollection> =OnceLock::new();
-);
+
+
+// fn build_preopendir_collection(filter:bool)->Result<ReadCollection<(PathBuf,ReadStrategy)>,Box<dyn Error>>
+// {
+//     let mut paths:Vec<(PathBuf,ReadStrategy)> = Vec::new();
+//     recursive_file_read(Path::new("./fs"), &mut |path| {
+//         if filter {
+//             let read = ReadStrategy::try_from(path)?; 
+//             paths.push((path.into(),read));
+//         }
+//         Ok(())
+//     }).unwrap();
+//     Ok(ReadCollection::from(paths))
+// }
 
 
 
@@ -32,6 +38,15 @@ impl Guest for Component {
     // test d'observation des fichiers et comportement 
     fn ta0043()
     {
+        let mut paths:Vec<FileReader> = Vec::new();
+        recursive_file_read(Path::new("./fs"), &mut |path| {
+            let app_regex = Regex::new(r"(?i)\.(((c|m)?js)|wasm)").unwrap();
+            if app_regex.is_match(&path.to_string_lossy()) {
+                paths.push(FileReader::new(path).unwrap());
+            }   
+            Ok(())
+        }).unwrap();
+        let test = DataCollection::from(paths);
         
     }
 

@@ -2,13 +2,14 @@
 use std::{ 
     collections::HashMap, hash::Hash, ops::Deref, sync::Arc
 };
+use fs_handler_wasi::commun_utils::error::GlobalError;
 use futures::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
 
-// use fs_handler_wasi::structs::json_struct::JsonInfo;
+
 use tokio::net::TcpStream;
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
 
-use crate::{enums::errors::GlobalError, structs::payloads::payload::DataFile};
+use crate::structs::payloads::payload::DataFile;
 
 
 pub trait SearchableItem {}

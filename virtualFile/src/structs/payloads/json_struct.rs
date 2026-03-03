@@ -1,13 +1,10 @@
 use std::{error::Error, path::Path};
 
 use serde::Serialize;
-
-use crate::{
-    enums::errors::GlobalError, 
-    structs::read_strategies::{CHUNK_SMALL_MEDIUM, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE}
+use fs_handler_wasi::commun_utils::{
+    error::GlobalError, 
+    read_strategies::{CHUNK_SMALL_MEDIUM, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE}
 };
-
-
 
 #[derive(Serialize, Debug)]
 pub struct JsonInfo {

@@ -1,5 +1,7 @@
 virtualFile/target/*
 fsHandlerWasi/target/*
+communUtilsHandler/target/*
+communUtilsHandler/deriveUtils/target/*
 bin.sh
 # !/tft/target/
 # /tft/target/*

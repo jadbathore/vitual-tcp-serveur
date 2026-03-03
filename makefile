@@ -2,12 +2,22 @@ TARGET_WASI=wasm32-wasip2
 TARGET_WASM=wasm32-unknown-unknown
 IMAGE=virtual-front-end
 CONTAINER_NAME=vfs-test
+VFS=../test/
+ADDRESS="localhost:8080"
+
+build-lib:
+	cd communUtilsHandler && cargo build --release \
+	&& cd deriveUtils && cargo build --release
+
 
 build-wasi:
 	cd fsHandlerWasi && cargo component build --target $(TARGET_WASI) --release --target-dir ../virtualFile/target
 
-test-host:
-	cd virtualFile && VFS_DIR="../test/" ADDRESS="localhost:8080" RUST_BACKTRACE=1 cargo run
+build-host:
+	cd virtualFile && VFS_DIR=$(VFS) ADDRESS=$(ADDRESS) RUST_BACKTRACE=1 cargo build --release
+
+run:
+	cd virtualFile && VFS_DIR=$(VFS) ADDRESS=$(ADDRESS) RUST_BACKTRACE=1 cargo run 
 
 build-all: build-wasi test-host
 

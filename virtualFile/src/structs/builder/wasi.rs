@@ -3,8 +3,8 @@ use std::{env::VarError, error::Error};
 use wasmtime::{Engine, Store, component::{Component, TypedFunc,Instance, Linker}};
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder};
 
-use crate::{VFS_DIR, enums::errors::GlobalError, general, structs::states::WasiState, traits::builder::WasiUtilsBuild};
-
+use crate::{VFS_DIR, general, structs::{builder::director::Director, states::WasiState}, traits::builder::WasiUtilsBuild};
+use fs_handler_wasi::commun_utils::error::GlobalError;
 
 
 #[derive(Default)]
@@ -106,4 +106,16 @@ where
             Err(Box::new(GlobalError::UninitializedVariable))
         }
     }
+}
+
+pub fn build_wasi_call<P,R>(param:P,func_name:&str)->Result<R, Box<dyn Error>>
+where 
+    P: wasmtime::component::Lower + wasmtime::component::ComponentNamedList + std::default::Default,
+    R: wasmtime::component::ComponentNamedList + wasmtime::component::Lift + std::default::Default,
+{
+    let mut builder:WasiBuild<P, R> = WasiBuild::default();
+    Director::construct_wasi(&mut builder)?;
+    let typed_req = builder.build(func_name)?;
+    let a = typed_req.call(builder.get_store()?,param)?;
+    Ok(a)
 }

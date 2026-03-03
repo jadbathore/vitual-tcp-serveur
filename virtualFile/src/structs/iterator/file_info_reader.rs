@@ -9,7 +9,6 @@ use crate::{
     }
 };
 
-// #[derive(Clone)]
 pub struct PayloadCollection
 {
     payloads:Vec<DataFile>,
@@ -18,7 +17,6 @@ pub struct PayloadCollection
 
 impl From<Vec<DataFile>> for PayloadCollection
 {
-
     fn from(data_files: Vec<DataFile>) -> Self {
         let mut accessor = IndexAccessor::default();
         for data_file in data_files.iter(){
@@ -31,19 +29,6 @@ impl From<Vec<DataFile>> for PayloadCollection
             accesor:accessor
         }
     }
-    
-    // from(data_files:Vec<DataFile>) -> Self {
-    //     let mut accessor = IndexAccessor::default();
-    //     for data_file in data_files.iter(){
-    //         let url = data_file.get_payload().stringify_to_json();
-    //         accessor.append_index(url);
-    //     }
-
-    //     PayloadCollection { 
-    //         payloads: data_files,
-    //         accesor:accessor
-    //     }
-    // }
 }
 
 impl StaticCollection<&'static DataFile> for PayloadCollection {
@@ -54,26 +39,8 @@ impl StaticCollection<&'static DataFile> for PayloadCollection {
     }
 }
 
-// impl PayloadCollection
-// {
-//     pub fn iter(&'static self) -> Box<PayloadIterator>
-//     {
-//         Box::new(PayloadIterator::new(self))
-//     }
-
-//     // fn set_accessor(&'static self)-> Result<(), GlobalError>
-//     // {
-//     //     let mut a = IndexAccessor::default();
-//     //     for test in self.iter() {
-//     //         a.append_index(test.get_string_lossy_url().to_string());
-//     //     }
-//     //     self.accesor.set(a).map_err(|_|GlobalError::ResetOnceLock)
-//     // }
-// }
-
 pub struct PayloadIterator {
     index:usize,
-    // capacity_allocate: u64,
     payload_collection:&'static PayloadCollection
     
 }
@@ -99,8 +66,6 @@ impl PayloadIterator
         self.index < self.payload_collection.payloads.len()
     }
 }
-
-
 
 impl Iterator for  PayloadIterator
 {

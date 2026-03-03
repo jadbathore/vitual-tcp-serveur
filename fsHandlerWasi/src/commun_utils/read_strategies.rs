@@ -1,12 +1,10 @@
 use std::{
     borrow::Cow, 
     error::Error, 
-    fs,io::{BufReader,Read}, path::Path, sync::Arc
+    fs::{self, DirEntry},io::{self, BufReader, Read}, path::Path, sync::Arc
 };
 
-use crate::{
-    enums::errors::GlobalError
-};
+use crate::commun_utils::error::GlobalError;
 
 pub const MEDIUM_FILE: u64 = 64 * 1024;
 pub const LARGE_FILE: u64 = 10 * 1024 * 1024;
@@ -21,7 +19,7 @@ pub trait ReadStrategies {
     fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box<dyn Error>>;
 }
 
-pub struct SmaleRead<'cow> {
+struct SmaleRead<'cow> {
     inner:Cow<'cow,Path>
 }
 
@@ -98,49 +96,6 @@ impl<'cow> ReadStrategies for ChunckRead<'cow> {
     }
 }
 
-
-// struct StreamRead {
-//     stream:Stdout
-// }
-
-
-// struct ReadNavigator<T:ReadStrategies> where  
-//     T:
-// {
-//     strategies:T
-// }
-
-// impl<T:ReadStrategies> ReadNavigator<T> 
-// {
-//     pub fn new(strategy:T)->Self {
-//         ReadNavigator { strategies: strategy }
-//     }
-
-//     fn read(self,buffer:&mut Vec<Arc<[u8]>>){
-//         self.strategies.flush(buffer);
-//     }
-
-    
-// }
-
-// struct ReadEntry<'path> {
-//     path:Cow<'path,Path>,
-//     strategy:ReadStrategy
-// }
-
-// impl<'path> ReadEntry<'path>  {
-//     fn new(path:Cow<'path,Path>)-> Result<Self,Box<dyn Error>>
-//     {
-//         let read = ReadStrategy::try_from(path.as_ref())?;
-//         Ok(
-//             ReadEntry { 
-//                 path:path, 
-//                 strategy: read
-//             }
-//         )
-//     }
-// }
-
 #[derive(Debug)]
 pub enum ReadStrategy {
     Smale,
@@ -151,14 +106,14 @@ pub enum ReadStrategy {
 }
 
 impl<'buffer> TryFrom<&'buffer Path> for ReadStrategy {
-    type Error = Box<dyn Error>;
+    type Error = io::Error;
     fn try_from(entry: &'buffer Path) -> Result<Self,Self::Error> {
         match entry.metadata()?.len() { 
             x if x <= MEDIUM_FILE => Ok(ReadStrategy::Smale),
             x if x <= LARGE_FILE => Ok(ReadStrategy::Medium),
             x if x <= HUGE_FILE => Ok(ReadStrategy::Large),
             x if x <= GIGA_FILE  => Ok(ReadStrategy::ExtraLarge),
-            _ => Err(Box::new(GlobalError::FileToBig))
+            _ => Err(io::Error::new(io::ErrorKind::FileTooLarge, "can't read file to large"))
         }
     }
 }
@@ -171,14 +126,28 @@ impl ReadStrategy {
             Self::Medium => Box::new(MediumRead::new(&path)?),
             Self::Large => Box::new(ChunckRead::new(&path, 128 * 1024)),
             Self::ExtraLarge => Box::new(ChunckRead::new(&path, 256 * 1024)),
-            // Self::GigaLarge => todo!()
         };
         result.flush(buffer)?;
-        
-        // BoxedStrategy::as_ref(&result).flush(buffer);
-        //  = result.as_ref();
-        // let nav = ReadNavigator::new(result);
         Ok(())
     }
 }
 
+fn get_entries(path:&Path)-> Result<Vec<DirEntry>,io::Error>
+{
+    let readir = fs::read_dir(path)?;
+    readir.collect()
+}
+
+pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Error>> 
+    where 
+        F: FnMut(&Path)-> Result<(), Box<dyn Error>> 
+{
+    for entry in get_entries(path)?.iter() {
+        if entry.file_type()?.is_file() {
+            handler(entry.path().leak())?;
+        } else {
+            recursive_file_read::<F>(entry.path().leak(), handler)?;
+        }
+    }
+    Ok(())
+}
