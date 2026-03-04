@@ -64,6 +64,7 @@ where
     {
         if let Some(vsf_dir) = VFS_DIR.get() {
             let wasi =  WasiCtxBuilder::new()
+            .inherit_stdout()
             .inherit_stdio()
             .inherit_network()
             .preopened_dir(vsf_dir, "/fs", wasmtime_wasi::DirPerms::all(), wasmtime_wasi::FilePerms::all())?

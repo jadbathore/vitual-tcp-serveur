@@ -5,11 +5,12 @@ mod utils;
 pub mod commun_utils;
 use bindings::Guest;
 use regex::Regex;
+use commun_utils_handler::FileScanner;
 use std::{collections, error::Error, path::{Path, PathBuf}};
 
 use crate::{
     commun_utils::{item::FileReader, read_strategies::{self, ReadStrategy, recursive_file_read}}, 
-    utils::payload_collection::{Collection, DataIterator, DataCollection}
+    utils::{lexer::{MalwareWarnRaise, test}, payload_collection::{Collection, DataCollection, DataIterator}}
 };
 
 
@@ -38,15 +39,18 @@ impl Guest for Component {
     // test d'observation des fichiers et comportement 
     fn ta0043()
     {
-        let mut paths:Vec<FileReader> = Vec::new();
-        recursive_file_read(Path::new("./fs"), &mut |path| {
-            let app_regex = Regex::new(r"(?i)\.(((c|m)?js)|wasm)").unwrap();
-            if app_regex.is_match(&path.to_string_lossy()) {
-                paths.push(FileReader::new(path).unwrap());
-            }   
-            Ok(())
-        }).unwrap();
-        let test = DataCollection::from(paths);
+        MalwareWarnRaise::scan();
+        // println!("test");
+        // test();
+        // let mut paths:Vec<FileReader> = Vec::new();
+        // recursive_file_read(Path::new("./fs"), &mut |path| {
+        //     let app_regex = Regex::new(r"(?i)\.(((c|m)?js)|wasm)").unwrap();
+        //     if app_regex.is_match(&path.to_string_lossy()) {
+        //         paths.push(FileReader::new(path).unwrap());
+        //     }   
+        //     Ok(())
+        // }).unwrap();
+        // let test = DataCollection::from(paths);
         
     }
 

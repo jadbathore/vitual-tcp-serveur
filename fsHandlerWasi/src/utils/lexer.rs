@@ -1,15 +1,17 @@
 // use logos::Logos;
-use deriveUtils::FileScanner;
+use deriveUtils::{FileScanner};
 use commun_utils_handler::FileScanner;
+// use deriveUtils::FileScanner;
 
 use std::error::Error;
 
 use regex::{Match, Regex};
 
 
-enum MalwareWarnRaise {
+#[derive(FileScanner)]
+pub enum MalwareWarnRaise {
+    #[regex("abc")]
     NetworkAccess,
-    
     Exflitration,
     SysInfomationCollect,
     WebGLInfomationCollect,
@@ -25,10 +27,8 @@ enum MalwareWarnRaise {
     NotSuspectFile
 }
 
-macro_rules! MalwareRegex {
-    (network_access,$item:expr) => {
-        Regex::new(r#"(fetch|XMLHttpRequest|axios|WebSocket|EventSource|navigator\.sendBeacon|postMessage|onmessage|addEventListener[(].message.[)])"#);
-    };
+pub fn test(){
+    MalwareWarnRaise::scan();
 }
 
 // impl TryFrom<&str> for MalwareWarnRaise {

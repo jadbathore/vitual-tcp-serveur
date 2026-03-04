@@ -19,7 +19,7 @@ build-host:
 run:
 	cd virtualFile && VFS_DIR=$(VFS) ADDRESS=$(ADDRESS) RUST_BACKTRACE=1 cargo run 
 
-build-all: build-wasi test-host
+build-all: build-lib build-wasi run
 
 clean-all:
 	cd fsHandlerWasi && cargo clean 

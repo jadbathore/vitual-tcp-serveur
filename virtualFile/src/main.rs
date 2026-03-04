@@ -94,7 +94,7 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
 fn main()->Result<(),Box<dyn Error>> 
 {
     set_env_var()?;
-    build_wasi_call::<(),()>((), "TA0043")?;
+    let a = build_wasi_call::<(),()>((), "TA0043")?;
 
     // set_payload_variable(VFS_DIR.get())?;
 
