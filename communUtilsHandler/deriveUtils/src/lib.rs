@@ -1,5 +1,4 @@
 use proc_macro::{Span, TokenStream};
-
 use quote::quote;
 use syn::{self,Data,Ident, LitStr};
 
@@ -56,11 +55,20 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
         let generation = quote! {
             impl FileScanner for #name
             {
-                fn scan(){
-                    #(
-                        println!("regex {},{}",stringify!(#variants),#regex);
-                    )*
-                    println!("Hello, Macro ! Mon nom est {}", stringify!(#name));
+                fn scan(content:String)
+                {
+                    let mut variants:Vec<ScanWarn> = vec![
+                        #(
+                            ScanWarn::new(Regex::new(#regex).unwrap(),stringify!(#variants)),
+                        // println!("regex {},{}",stringify!(#variants),#regex)
+                        )*
+                    ];
+                    let mut warn = 0;
+                    for scan in variants.iter_mut() {
+                        println!("warning name {}",scan.get_name());
+                        warn += scan.threat_score(&content);
+                    }
+                    println!("warning score {}",warn);
                 }
             }
         };
@@ -73,74 +81,4 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
             .to_compile_error()
             .into());
     }
-    //     let variants:Vec<&Ident> = data_enum.variants.iter().filter(|variant|{
-    //         let mut attrs = variant.attrs.iter();
-    //         if let (Some(attr),None) = (attrs.next(),attrs.next()) {
-    //             if attr.path().is_ident("regex") {
-    //                 true
-    //             } else {
-    //                 let message = "the only attribute accepted is regex \n correction : #[regex(...)]\n".to_string() + &variant.ident.to_string();
-    //                 variant_errors.push(syn::Error::new_spanned(
-    //                     variant,
-    //                     message
-    //                 )
-    //                 .to_compile_error()
-    //                 .into());
-    //                 false
-    //             }
-    //         } else {
-    //             let message = "Can't only be one attribute for the FileScanner variants \n correction : #[regex(...)]\n".to_string() + &variant.ident.to_string();
-    //             variant_errors.push(syn::Error::new_spanned(
-    //             variant,
-    //                 message
-    //             )
-    //             .to_compile_error()
-    //             .into());
-    //             false
-    //         }
-    //     }
-            
-    //     ).map(|a|{&a.ident}).collect();
-    //     for variant in data_enum.variants.iter() {
-    //         println!("Variant: {}", variant.ident);
-    //         for attr in variant.attrs.iter() {
-    //             if attr.path().is_ident("regex") {
-    //                 println!("  -> token trouvé !");
-    //             }
-    //         }
-    //     }
-
-    //     if !variant_errors.is_empty() {
-    //         variant_errors[0]
-    //     } else {
-    //         let name = &ast.ident;
-    //         // let test = &ast.attrs;
-    //         let generation = quote! {
-    //             impl FileScanner for #name
-    //             {
-    //                 fn scan(){
-    //                     println!("Hello, Macro ! Mon nom est {}", stringify!(#name));
-    //                 }
-    //             }
-    //         };
-    //         generation.into()
-    //     }
-
-        
-    // } else {
-    //     syn::Error::new_spanned(
-    //             ast,
-    //             "FileScanner can only be used on enums"
-    //         )
-    //         .to_compile_error()
-    //         .into()
-    // }
 } 
-    // for attr in ast.attrs.iter() { 
-    //     if attr.path().is_ident("regex") {
-    //         let meta = attr.parse_args::<syn::LitStr>().unwrap();
-    //         println!("Regex = {}", meta.value());
-    //     }
-    // }
-
-    

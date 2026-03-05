@@ -10,7 +10,7 @@ use std::{collections, error::Error, path::{Path, PathBuf}};
 
 use crate::{
     commun_utils::{item::FileReader, read_strategies::{self, ReadStrategy, recursive_file_read}}, 
-    utils::{lexer::{MalwareWarnRaise, test}, payload_collection::{Collection, DataCollection, DataIterator}}
+    utils::{lexer::{MalwareWarnRaise}, payload_collection::{Collection, DataCollection, DataIterator}}
 };
 
 
@@ -39,7 +39,11 @@ impl Guest for Component {
     // test d'observation des fichiers et comportement 
     fn ta0043()
     {
-        MalwareWarnRaise::scan();
+        // let regex = Regex::new(r"https").unwrap();
+        // dbg!(regex.captures("https").iter().len());
+        MalwareWarnRaise::scan(String::from("https"));
+        // let malware_raise = MalwareWarnRaise::new();
+        // MalwareWarnRaise::scan(String::from("https"));
         // println!("test");
         // test();
         // let mut paths:Vec<FileReader> = Vec::new();

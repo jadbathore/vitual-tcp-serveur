@@ -1,35 +1,38 @@
-use regex::Regex;
+use regex::{Captures, Regex};
 pub trait FileScanner {
-    fn scan();
+    fn scan(content:String);
 }
 
-struct ScanWarn {
+#[derive(Debug)]
+pub struct ScanWarn<'haystack> {
     regex:Regex,
-    name:String,
-    score:u64
+    name:&'haystack str,
 }
 
+impl<'haystack> ScanWarn<'haystack> {
 
-
-
-impl ScanWarn {
-
-    fn new(regex:Regex,name:String)->Self
+    pub fn new(regex:Regex,name:&'haystack str)->Self
     {
         ScanWarn { 
             regex,
             name,
-            score:0 
         }
     }
 
-    fn scan<F>(&self,content:F)->bool
-        where
-            F:AsRef<[u8]>,
-            for<'a> &'a str: From<F>
+    pub fn get_name(&self)->String
     {
-        self.regex.is_match(content.into())
-        // let a:String = content.into();
+        self.name.to_string()
+    }
+
+    pub fn threat_score<'a>(&mut self,content:&'a str)-> usize
+    {
+        if let Some(capture) = self.regex.captures(content) {
+            capture.iter().len()
+        } else {
+            0
+        }
+
+        // self.regex.captures(content.into()).iter().len();
     }
 
 }
