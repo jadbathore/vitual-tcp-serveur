@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 // use std::{ num::TryFromIntError,sync::OnceLock };
 use futures::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
@@ -100,7 +102,7 @@ impl PayloadSender for PayloadIterator
     }
 
     async fn send_payload(&self,write:&mut WriteSender,item:Self::Item) {
-        let mut datas = Vec::new();
+        let mut datas:Vec<Arc<[u8]>> = Vec::new();
         if let (Ok(payload),Ok(_)) = (item.get_payload().stringify_to_json(),item.flush_data(&mut datas)) 
         {
             let _ = write.send(Message::Text(payload)).await;

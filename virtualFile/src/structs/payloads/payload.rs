@@ -1,6 +1,6 @@
-use std::{borrow::Cow, error::Error, io, ops::Deref, path::Path, sync::Arc };
-
-use fs_handler_wasi::commun_utils::{item::FileReader,read_strategies::ReadStrategy};
+use std::{error::Error,ops::Deref, path::Path, sync::Arc };
+use commun_utils_handler::fs_strategies::FileReader;
+// use fs_handler_wasi::commun_utils::{item::FileReader,read_strategies::ReadStrategy};
 
 use crate::{
     structs::{

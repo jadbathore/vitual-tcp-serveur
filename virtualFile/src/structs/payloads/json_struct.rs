@@ -1,9 +1,9 @@
 use std::{error::Error, path::Path};
 
 use serde::Serialize;
-use fs_handler_wasi::commun_utils::{
-    error::GlobalError, 
-    read_strategies::{CHUNK_SMALL_MEDIUM, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE}
+use commun_utils_handler::{
+    errors::GlobalError,
+    fs_strategies::{CHUNK_SMALL_MEDIUM, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE}
 };
 
 #[derive(Serialize, Debug)]

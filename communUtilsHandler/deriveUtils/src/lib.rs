@@ -1,6 +1,13 @@
 use proc_macro::{Span, TokenStream};
 use quote::quote;
-use syn::{self,Data,Ident, LitStr};
+use syn::{self, Data, Ident, LitStr};
+// macro_rules! regex_patterns {
+//     ($($pat:expr),* $(,)?) => {
+//         const COUNT: usize = <[()]>::len(&[$(regex_patterns!(@sub $pat)),*]);
+//     };
+
+//     (@sub $x:expr) => (());
+// }
 
 
 #[proc_macro_derive(FileScanner,attributes(regex))]
@@ -17,6 +24,7 @@ pub fn hello_macro_derive(input: TokenStream) -> TokenStream {
 }
 
 
+
 fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
     if let Data::Enum(data_enum) = &ast.data {
         let (mut variants,mut regex):(Vec<&Ident>,Vec<LitStr>) = (Vec::new(),Vec::new());
@@ -28,7 +36,6 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
                         let meta:LitStr = attr.parse_args().map_err(|error|{
                             error.to_compile_error()
                         })?;
-                        // let a = Ident::new(meta.suffix(), meta.span());
                         variants.push(&variant.ident);
                         regex.push(meta);
                     } else {
@@ -52,23 +59,19 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
             }
         }
         let name = &ast.ident;
+        let len_regex:usize = variants.len();
+        
+
         let generation = quote! {
             impl FileScanner for #name
             {
-                fn scan(content:String)
+                fn scanner<'scanner>()->ScanBytesSubject<'scanner>
                 {
-                    let mut variants:Vec<ScanWarn> = vec![
-                        #(
-                            ScanWarn::new(Regex::new(#regex).unwrap(),stringify!(#variants)),
-                        // println!("regex {},{}",stringify!(#variants),#regex)
-                        )*
-                    ];
-                    let mut warn = 0;
-                    for scan in variants.iter_mut() {
-                        println!("warning name {}",scan.get_name());
-                        warn += scan.threat_score(&content);
-                    }
-                    println!("warning score {}",warn);
+                    const LEN_REGEX:usize = #len_regex;
+                    let variants:[&str;LEN_REGEX] = [#(stringify!(#variants),)*];
+                    let regexes:[&str;LEN_REGEX] = [#(#regex,)*];
+
+                    ScanBytesSubject::new::<LEN_REGEX>(variants,regexes).unwrap()
                 }
             }
         };

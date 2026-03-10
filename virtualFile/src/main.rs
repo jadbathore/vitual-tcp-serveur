@@ -1,29 +1,26 @@
 use std::{env, error::Error, path::{PathBuf}, sync::{Arc, OnceLock}};
-// use futures::{FutureExt};
 use lazy_static::lazy_static;
-use tokio::{net::TcpListener, runtime::Runtime};
 
-// use fs_handler_wasi::structs::{collection::{self, PayloadCollection}, json_struct::JsonInfo, payload_request::{self, DataFile}};
-// use futures::StreamExt;
 mod general;
 mod structs;
 mod general_macros;
 mod traits;
 
-use fs_handler_wasi::commun_utils::{
-    read_strategies::{ReadStrategy,recursive_file_read},
-    error::GlobalError
+use commun_utils_handler::{
+    errors::GlobalError,
+    fs_strategies::{
+        recursive_file_read,
+        ReadStrategy
+    }
 };
 
-use crate::structs::{builder::wasi::build_wasi_call, iterator::cached_data::StaticCollection};
+
+use crate::structs::{builder::wasi::build_wasi_call};
 use crate::{
-    general::handle_client, 
     structs::{
-        builder::{director::Director, wasi::WasiBuild}, 
         iterator::{cached_data::CacheCollection,file_info_reader::PayloadCollection}, 
         payloads::payload::DataFile
-    }, 
-    traits::builder::WasiUtilsBuild
+    }
 };
 
 // thread_local! {
@@ -40,8 +37,6 @@ lazy_static!(
     static ref CACHE_PAYLOADS:OnceLock<Arc<CacheCollection>> = OnceLock::new();
     static ref PAYLOADS:OnceLock<Arc<PayloadCollection>> =OnceLock::new();
 );
-
-
 
 fn error_handle_set_oncelock<T>(_:T)->Box<GlobalError>
 {
@@ -94,7 +89,7 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
 fn main()->Result<(),Box<dyn Error>> 
 {
     set_env_var()?;
-    let a = build_wasi_call::<(),()>((), "TA0043")?;
+    build_wasi_call::<(),()>((), "TA0043")?;
 
     // set_payload_variable(VFS_DIR.get())?;
 

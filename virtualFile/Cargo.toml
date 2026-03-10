@@ -10,7 +10,8 @@ tokio-tungstenite = "0.23.1"
 futures = "0.3.30"
 wasmtime = "38.0.4"
 wasmtime-wasi = "38.0.4"
-
+commun_utils_handler = {path = "../communUtilsHandler/"}
+deriveUtils = {path = "../communUtilsHandler/deriveUtils/"}
 lazy_static = "1.5.0"
 serde = "1.0.228"
 serde_json = "1.0.148"

@@ -4,7 +4,7 @@ use std::{
     fs::{self, DirEntry},io::{self, BufReader, Read}, path::Path, sync::Arc
 };
 
-use crate::commun_utils::error::GlobalError;
+use crate::errors::GlobalError;
 
 pub const MEDIUM_FILE: u64 = 64 * 1024;
 pub const LARGE_FILE: u64 = 10 * 1024 * 1024;
@@ -150,4 +150,51 @@ pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Err
         }
     }
     Ok(())
+}
+
+#[derive(Debug)]
+pub struct FileReader
+{
+    inner:Arc<Path>,
+    strategy:ReadStrategy
+}
+
+impl<'a> TryFrom<&'a Path> for FileReader {
+
+    type Error = Box<dyn Error>;
+
+    fn try_from(path: &'a Path) -> Result<Self, Self::Error> {
+        Ok(FileReader { 
+            inner: Arc::from(path), 
+            strategy: ReadStrategy::try_from(path)?
+        })
+    }
+}
+
+impl FileReader
+{
+    pub fn new(path:&Path)->Result<Self,Box<dyn Error>>
+    {
+        Ok(FileReader { 
+            inner: Arc::from(path), 
+            strategy: ReadStrategy::try_from(path)?
+        })
+    }
+
+    pub fn get_string_lossy_url(&self)->Cow<'_, str>
+    {
+        self.inner.to_string_lossy()
+    }
+    
+    pub fn get_strategy(&self)->&ReadStrategy 
+    {
+        &self.strategy
+    }
+
+    pub fn flush_data(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(), io::Error>
+    {
+        self.strategy.excute_reader_strategy(buffers, &self.inner)
+        .map_err(|_|io::Error::new(io::ErrorKind::Other, "strategy can't handle reading"))?;
+        Ok(())
+    }
 }

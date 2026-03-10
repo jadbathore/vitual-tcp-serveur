@@ -3,9 +3,8 @@ use std::{env::VarError, error::Error};
 use wasmtime::{Engine, Store, component::{Component, TypedFunc,Instance, Linker}};
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder};
 
-use crate::{VFS_DIR, general, structs::{builder::director::Director, states::WasiState}, traits::builder::WasiUtilsBuild};
-use fs_handler_wasi::commun_utils::error::GlobalError;
-
+use crate::{VFS_DIR,structs::{builder::director::Director, states::WasiState}, traits::builder::WasiUtilsBuild};
+use commun_utils_handler::errors::GlobalError;
 
 #[derive(Default)]
 pub struct WasiBuild<P,R> 

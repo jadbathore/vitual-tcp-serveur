@@ -2,7 +2,7 @@
 use std::{ 
     collections::HashMap, hash::Hash, ops::Deref, sync::Arc
 };
-use fs_handler_wasi::commun_utils::error::GlobalError;
+use commun_utils_handler::errors::GlobalError;
 use futures::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
 
 

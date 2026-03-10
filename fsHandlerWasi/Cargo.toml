@@ -8,6 +8,7 @@ edition = "2024"
 
 commun_utils_handler = {path = "../communUtilsHandler/"}
 deriveUtils = {path = "../communUtilsHandler/deriveUtils/"}
+indicatif = "0.18.4"
 regex = "1.12.3"
 wit-bindgen-rt = { version = "0.44.0", features = ["bitflags"] }
 
