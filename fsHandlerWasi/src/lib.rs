@@ -31,12 +31,8 @@ struct Component;
 fn scan(files:Vec<FileReader>,scanner:ScanBytesSubject)
 {
     let progress_bar_application = ProgressBar::new(files.len() as u64);
-    for file in files.iter() {
-        let mut buffers:Vec<Arc<[u8]>> = Vec::new();
-        file.flush_data(&mut buffers).unwrap();
-        for data in buffers {
-            scanner.scan_data(&data,file.get_string_lossy_url());
-        }
+    for file in files {
+        scanner.scan_data(file).unwrap();
         progress_bar_application.inc(1);
     }
     progress_bar_application.finish();
@@ -63,6 +59,7 @@ impl Guest for Component {
         
         scan(image_files, MalwareWarnRaiseImg::scanner());
         scan(application_files, MalwareWarnRaiseApp::scanner());
+        
         // let mut paths:Vec<FileReader> = Vec::new();
 
         // let regex = Regex::new(r"https").unwrap();

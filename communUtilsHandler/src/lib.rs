@@ -1,15 +1,17 @@
 pub mod errors;
 pub mod fs_strategies;
+pub mod collection;
 
-use std::{borrow::Cow, collections::HashMap, error::Error, iter};
+use std::{borrow::Cow, collections::{HashMap, HashSet}, error::Error, iter, sync::Arc};
 
 use regex::bytes::{Regex, RegexSet};
+
+use crate::{collection::{Collection, GenericCollection}, fs_strategies::FileReader};
 
 pub trait FileScanner {
     fn scanner<'scanner>()->ScanBytesSubject<'scanner>;
     // fn test();
 }
-
 
 pub struct ScanWarnByte<'key> {
     warn_name:&'key str,
@@ -28,6 +30,7 @@ impl<'key> ScanWarnByte<'key> {
         &self.regex
     }
 }
+
 
 
 pub struct ScanBytesSubject<'keys> {
@@ -54,11 +57,6 @@ pub struct ScanBytesSubject<'keys> {
 //     }
 // }
 
-impl<'keys> ScanBytesSubject<'keys> {
-    
-}
-
-
 impl<'keys> ScanBytesSubject<'keys> 
 {
     pub fn new<const N: usize>(warn: [&'keys str; N], regex_name: [&'keys str; N])->Result<Self, Box<dyn Error>> 
@@ -70,15 +68,33 @@ impl<'keys> ScanBytesSubject<'keys>
         Ok(ScanBytesSubject { regex_set: regex_set, regexes:regexes})
     }
 
-    pub fn scan_data<'file>(&self,data:&[u8],file_name:Cow<'file,str>)
+    pub fn scan_data<'file>(&self,file:FileReader)->Result<(),Box<dyn Error>>
     {
-        let matches = self.regex_set.matches(data);
-        for i in matches.iter() {
-            let current_regex = &self.regexes[i];
-            if current_regex.get_byte_regex().is_match(data) {
-                println!("warn {} found on file {}",current_regex.get_warn(),file_name);
-            }
+        let mut buffers:Vec<Arc<[u8]>> = Vec::new();
+        file.flush_data(&mut buffers)?;
+        // let binder:Vec<&ScanWarnByte> = Vec::new();
+        // let mut collection = GenericCollection::from(binder);
+        let mut set:HashSet<usize> = HashSet::new();
+
+        for data in buffers {
+            set.extend(self.regex_set.matches(&data).iter().collect::<Vec<usize>>());
         }
+
+        let warn:Vec<&str> = set.iter().map(|i|{
+            self.regexes[*i].get_warn()
+        }).collect();
+        if !warn.is_empty() {
+            println!("found on file {} :\n\t-{}",file.get_string_lossy_url(),warn.join("\n\t-"));
+            
+        }
+        Ok(())
+        // let matches = self.regex_set.matches(data);
+        // for i in matches.iter() {
+        //     let current_regex = &self.regexes[i];
+        //     if current_regex.get_byte_regex().is_match(data) {
+        //         println!("warn {} found on file {}",current_regex.get_warn(),file_name);
+        //     }
+        // }
     }
 }
 
