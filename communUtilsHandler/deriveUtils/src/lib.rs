@@ -70,7 +70,7 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
                     const LEN_REGEX:usize = #len_regex;
                     let variants:[&str;LEN_REGEX] = [#(stringify!(#variants),)*];
                     let regexes:[&str;LEN_REGEX] = [#(#regex,)*];
-
+                    
                     ScanBytesSubject::new::<LEN_REGEX>(variants,regexes).unwrap()
                 }
             }

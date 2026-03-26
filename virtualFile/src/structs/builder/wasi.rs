@@ -18,7 +18,6 @@ where
     store:Option<Store<WasiState>>,
     engine:Engine,
     instance:Option<Instance>,
-    
     params:P,                              
     returns:R
 }
@@ -119,3 +118,4 @@ where
     let a = typed_req.call(builder.get_store()?,param)?;
     Ok(a)
 }
+

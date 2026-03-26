@@ -1,15 +1,4 @@
-virtualFile/target/*
-fsHandlerWasi/target/*
-communUtilsHandler/target/*
+**/target/*
+# **/cargo.lock
 communUtilsHandler/deriveUtils/target/*
 bin.sh
-# !/tft/target/
-# /tft/target/*
-# # Except the app directory
-# !/tft/target/wasm32-unknown-unknown/
-# /tft/target/wasm32-unknown-unknown/*
-# # Except the public directory inside app
-# !/tft/target/wasm32-unknown-unknown/release/
-
-# /tft/target/wasm32-unknown-unknown/release/*
-# !/tft/target/wasm32-unknown-unknown/release/tft.wasm

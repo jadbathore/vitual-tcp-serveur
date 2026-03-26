@@ -1,4 +1,5 @@
-use std::{env, error::Error, path::{PathBuf}, sync::{Arc, OnceLock}};
+
+use std::{env, error::Error, path::PathBuf, sync::{Arc, OnceLock}};
 use lazy_static::lazy_static;
 
 mod general;
@@ -8,20 +9,21 @@ mod traits;
 
 use commun_utils_handler::{
     errors::GlobalError,
-    fs_strategies::{
-        recursive_file_read,
-        ReadStrategy
-    }
+    fs_strategies::recursive_file_read
 };
+use tokio::{net::TcpListener, runtime::Runtime};
 
 
-use crate::structs::{builder::wasi::build_wasi_call};
+use crate::{general::handle_client, structs::{builder::wasi::build_wasi_call, states::PredicatorCache}};
 use crate::{
     structs::{
-        iterator::{cached_data::CacheCollection,file_info_reader::PayloadCollection}, 
+        iterator::{cached_data::{CacheCollection,StaticCollection},file_info_reader::PayloadCollection}, 
         payloads::payload::DataFile
     }
 };
+
+
+
 
 // thread_local! {
 //     static BUFFERS: RefCell<Vec<Vec<u8>>> = RefCell::new(panic!("no buffer provided"));
@@ -29,8 +31,10 @@ use crate::{
 //     // static NEXT_ID: RefCell<u32> = RefCell::new(0);
 // }
 
+    static CACHE_CAP:u64 = 1 * 1024 * 1024 * 1024; 
 
 lazy_static!(
+
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
     static ref ADDRESS:OnceLock<String> = OnceLock::new();
     static ref PROTOCOLS:[&'static str;2] = ["write","read"];
@@ -43,17 +47,9 @@ fn error_handle_set_oncelock<T>(_:T)->Box<GlobalError>
     Box::new(GlobalError::ResetOnceLock)
 }
 
-fn predicate_cache_use(type_data:&DataFile)->bool
-{
-    match type_data.get_strategy() {
-        ReadStrategy::Smale => true,
-        _ => false
-    }
-}
 
 fn set_env_var()->Result<(), Box<dyn Error>>
 {
-
     if let (Ok(vfs_path),Ok(address)) = (env::var("VFS_DIR"),env::var("ADDRESS")) {
         let path = PathBuf::from(vfs_path);
         VFS_DIR.set(path).map_err(error_handle_set_oncelock)?;
@@ -69,9 +65,10 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
     if let Some(path) = vfs_path {
         let mut data_to_payload:Vec<DataFile> = Vec::new();
         let mut data_to_cache:Vec<DataFile> = Vec::new();
+        let mut predicator:PredicatorCache = PredicatorCache::default();
         recursive_file_read(path,&mut |file| {
             let datafile = DataFile::new(file)?;
-            if predicate_cache_use(&datafile) {
+            if predicator.predicate_cache_use(&datafile)? {
                 data_to_cache.push(datafile);
             } else {
                 data_to_payload.push(datafile);
@@ -86,23 +83,28 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
     Ok(())
 }
 
+
+
 fn main()->Result<(),Box<dyn Error>> 
 {
     set_env_var()?;
-    build_wasi_call::<(),()>((), "TA0043")?;
+    build_wasi_call::<(),()>((), "TA0043").map_err(|_|{
+        println!("{}",GlobalError::WasiError);
+        GlobalError::WasiError
+    })?;
 
-    // set_payload_variable(VFS_DIR.get())?;
+    set_payload_variable(VFS_DIR.get())?;
 
-    // if let (Some(payloads),Some(caches),Some(addr)) = (PAYLOADS.get(),CACHE_PAYLOADS.get(),ADDRESS.get()) {
-    //     Runtime::new()?.block_on(async {
-    //         let listener = TcpListener::bind(addr).await.unwrap();
-    //         println!("running websocket on {}",addr);
-    //         while let Ok((stream, addr)) = listener.accept().await {
-    //             tokio::spawn(handle_client(stream,payloads.iter(),caches.iter()));
-    //             let time = time::OffsetDateTime::now_utc();
-    //             println!("data sended at {time} to {addr}");
-    //         }
-    //     });
-    // }   
+    if let (Some(payloads),Some(caches),Some(addr)) = (PAYLOADS.get(),CACHE_PAYLOADS.get(),ADDRESS.get()) {
+        Runtime::new()?.block_on(async {
+            let listener = TcpListener::bind(addr).await.unwrap();
+            println!("running websocket on {}",addr);
+            while let Ok((stream, addr)) = listener.accept().await {
+                tokio::spawn(handle_client(stream,payloads.iter(),caches.iter()));
+                let time = time::OffsetDateTime::now_utc();
+                println!("data sended at {time} to {addr}");
+            }
+        });
+    }   
     Ok(())
 }

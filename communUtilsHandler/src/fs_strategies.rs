@@ -13,9 +13,8 @@ pub const GIGA_FILE: u64 = 1 * 1024 * 1024 * 1024;
 pub const CHUNK_SMALL_SLICE:u64 = 128 * 1024;
 pub const CHUNK_SMALL_MEDIUM:u64 =  CHUNK_SMALL_SLICE * 2;
 
-
 pub trait ReadStrategies {
-    // type Buffer;
+
     fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box<dyn Error>>;
 }
 
@@ -189,6 +188,12 @@ impl FileReader
     pub fn get_strategy(&self)->&ReadStrategy 
     {
         &self.strategy
+    }
+
+
+    pub fn size(&self)->Result<u64,io::Error>
+    {
+        Ok(self.inner.metadata()?.len())
     }
 
     pub fn flush_data(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(), io::Error>

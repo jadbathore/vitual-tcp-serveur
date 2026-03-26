@@ -28,7 +28,7 @@ struct Component;
 // }
 
 
-fn scan(files:Vec<FileReader>,scanner:ScanBytesSubject)
+fn scan(files:Vec<FileReader>,scanner:&mut ScanBytesSubject)
 {
     let progress_bar_application = ProgressBar::new(files.len() as u64);
     for file in files {
@@ -57,8 +57,8 @@ impl Guest for Component {
             Ok(())
         }).unwrap();
         
-        scan(image_files, MalwareWarnRaiseImg::scanner());
-        scan(application_files, MalwareWarnRaiseApp::scanner());
+        scan(image_files, &mut MalwareWarnRaiseImg::scanner());
+        scan(application_files,&mut  MalwareWarnRaiseApp::scanner());
         
         // let mut paths:Vec<FileReader> = Vec::new();
 
