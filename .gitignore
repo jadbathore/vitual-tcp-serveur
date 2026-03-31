@@ -1,4 +1,4 @@
 **/target/*
-# **/cargo.lock
+**/Cargo.lock
 communUtilsHandler/deriveUtils/target/*
 bin.sh

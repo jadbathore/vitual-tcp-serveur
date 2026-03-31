@@ -7,13 +7,13 @@ mod structs;
 mod general_macros;
 mod traits;
 
+
+use colored::Colorize;
 use commun_utils_handler::{
     errors::GlobalError,
     fs_strategies::recursive_file_read
 };
 use tokio::{net::TcpListener, runtime::Runtime};
-
-
 use crate::{general::handle_client, structs::{builder::wasi::build_wasi_call, states::PredicatorCache}};
 use crate::{
     structs::{
@@ -34,7 +34,6 @@ use crate::{
     static CACHE_CAP:u64 = 1 * 1024 * 1024 * 1024; 
 
 lazy_static!(
-
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
     static ref ADDRESS:OnceLock<String> = OnceLock::new();
     static ref PROTOCOLS:[&'static str;2] = ["write","read"];
@@ -83,7 +82,16 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
     Ok(())
 }
 
+fn format_message(str:&str)
+{
+    let size_to_center = 4 + str.len();
+    let blankfiller = " ".repeat(size_to_center).on_green();
 
+    println!("\n\t{}",blankfiller);
+    println!("\t{:^size_to_center$}",str.white().bold().on_green());
+    println!("\t{}",blankfiller);
+
+}
 
 fn main()->Result<(),Box<dyn Error>> 
 {
@@ -92,17 +100,15 @@ fn main()->Result<(),Box<dyn Error>>
         println!("{}",GlobalError::WasiError);
         GlobalError::WasiError
     })?;
-
     set_payload_variable(VFS_DIR.get())?;
-
     if let (Some(payloads),Some(caches),Some(addr)) = (PAYLOADS.get(),CACHE_PAYLOADS.get(),ADDRESS.get()) {
         Runtime::new()?.block_on(async {
             let listener = TcpListener::bind(addr).await.unwrap();
-            println!("running websocket on {}",addr);
-            while let Ok((stream, addr)) = listener.accept().await {
+            format_message(&("running websocket on".to_owned() + addr));
+            while let Ok((stream, socket_addr)) = listener.accept().await {
                 tokio::spawn(handle_client(stream,payloads.iter(),caches.iter()));
                 let time = time::OffsetDateTime::now_utc();
-                println!("data sended at {time} to {addr}");
+                println!("data sended at {time} to {}",socket_addr.to_string().green());
             }
         });
     }   

@@ -1,5 +1,7 @@
 use std::{error::Error, fmt::{self, Debug}};
 
+use colored::Colorize;
+
 #[derive(Debug)]
 pub enum GlobalError {
     ParseError(String),
@@ -24,7 +26,7 @@ impl fmt::Display for GlobalError {
             GlobalError::FileToBig => "File to big to read",
             GlobalError::WasiError => "Something went wrong during the runing of a wasi component",
         };
-        f.write_str(description)
+        f.write_str(&description.red().bold().to_string())
     }
 }
 

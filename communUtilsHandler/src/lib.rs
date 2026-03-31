@@ -2,6 +2,7 @@ pub mod errors;
 pub mod fs_strategies;
 pub mod collection;
 
+use colored::Colorize;
 use std::{borrow::Cow, collections::{HashMap, HashSet}, error::Error, iter, sync::Arc};
 
 use regex::bytes::{Regex, RegexSet};
@@ -76,9 +77,14 @@ impl<'keys> ScanBytesSubject<'keys>
 
         if !warn.is_empty() {
             if CAP_ERROR < warn_score {
-                panic!("A suspicious file '{}' containing too many dangerous elements\nprevents the program from functioning:\n\t-{}",file.get_string_lossy_url(),warn.join("\n\t-"))
+                let msg = 
+                String::from("A suspicious file ") +
+                &file.get_string_lossy_url() + 
+                " prevents the program from functioning(\"" +
+                &warn.join("\",\"") + "\")";
+                panic!("{}: {}","error".bold().red(),msg.red());
             }
-            println!("found on file {} :\n\t-{}\nWith a score of warn_score {} ",file.get_string_lossy_url(),warn.join("\n\t-"),warn_score);
+            println!("{}:{}(\"{}\")","warning".yellow().bold(),file.get_string_lossy_url().yellow(),warn.join("\",\""));
         }
         Ok(())
     }
