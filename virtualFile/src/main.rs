@@ -104,7 +104,7 @@ fn main()->Result<(),Box<dyn Error>>
     if let (Some(payloads),Some(caches),Some(addr)) = (PAYLOADS.get(),CACHE_PAYLOADS.get(),ADDRESS.get()) {
         Runtime::new()?.block_on(async {
             let listener = TcpListener::bind(addr).await.unwrap();
-            format_message(&("running websocket on".to_owned() + addr));
+            format_message(&("running websocket on ".to_owned() + addr));
             while let Ok((stream, socket_addr)) = listener.accept().await {
                 tokio::spawn(handle_client(stream,payloads.iter(),caches.iter()));
                 let time = time::OffsetDateTime::now_utc();

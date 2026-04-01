@@ -32,14 +32,13 @@ pub struct NavigatorProtocols
 
 fn error_handle_set_oncelock<T>(_:T)->ErrorResponse
 {
-
     ErrorResponse::new(Some(String::from("can't reset data")))
 }
 
 
 impl NavigatorProtocols {
 
-    pub fn new()->Self
+    pub fn new()->Self 
     {
         NavigatorProtocols { protocols: OnceLock::new() }
     }

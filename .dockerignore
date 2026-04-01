@@ -1,1 +1,4 @@
+**/target/*
+**/Cargo.lock
 **/docker_vfs
+communUtilsHandler/deriveUtils/target/*

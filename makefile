@@ -5,10 +5,15 @@ CONTAINER_NAME=vfs-test
 VFS=../test/
 ADDRESS="localhost:8080"
 
+ifeq ($(VM-CONTEXT),1)
+	ADDRESS="0.0.0.0:8080"
+endif
+
+testa:
+	echo $(ADDRESS)
 build-lib:
 	cd communUtilsHandler && cargo build --release \
 	&& cd deriveUtils && cargo build --release
-
 
 build-wasi:
 	cd fsHandlerWasi && cargo component build --target $(TARGET_WASI) --release --target-dir ../virtualFile/target
@@ -19,7 +24,9 @@ build-host:
 run:
 	cd virtualFile && VFS_DIR=$(VFS) ADDRESS=$(ADDRESS) RUST_BACKTRACE=1 cargo run 
 
-build-all: build-lib build-wasi run
+build-all: build-lib build-wasi build-host
+
+init: build-lib build-wasi run
 
 clean-all:
 	cd fsHandlerWasi && cargo clean 
@@ -32,12 +39,10 @@ test-container:
 	docker compose --project-name $(CONTAINER_NAME) build;
 	docker compose --project-name $(CONTAINER_NAME) up;
 	
-
 test-image:
 	docker run -it  $(IMAGE) /bin/sh
 bind:
 	cd fsHandlerWasi && cargo component bindings 
-
 
 build-hash:
 	cd snapshot-hash/ && cargo run
