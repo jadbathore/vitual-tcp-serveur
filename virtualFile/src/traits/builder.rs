@@ -2,10 +2,7 @@ use std::error::Error;
 
 use wasmtime::component::TypedFunc;
 
-pub trait WasiUtilsBuild<P,R>
-    where 
-        P: wasmtime::component::Lower + wasmtime::component::ComponentNamedList,
-        R: wasmtime::component::ComponentNamedList + wasmtime::component::Lift
+pub trait WasiUtilsBuild
 {
 
     // type Param: wasmtime::component::Lower + wasmtime::component::ComponentNamedList;
@@ -16,7 +13,10 @@ pub trait WasiUtilsBuild<P,R>
     fn set_store(&mut self)->Result<(), Box<dyn Error>>;
     fn set_component(&mut self)->Result<(), Box<dyn Error>>;
     fn set_instance(&mut self)->Result<(), Box<dyn Error>>;
-    fn build(&mut self,func_name:&str)->Result<TypedFunc<P,R>, Box<dyn Error>>;
+    fn build<P,R>(&mut self,func_name:&str)->Result<TypedFunc<P,R>, Box<dyn Error>>
+    where 
+        P: wasmtime::component::Lower + wasmtime::component::ComponentNamedList,
+        R: wasmtime::component::ComponentNamedList + wasmtime::component::Lift;
 }
 
 

@@ -2,7 +2,7 @@
 use deriveUtils::{FileScanner};
 use commun_utils_handler::{FileScanner,ScanBytesSubject};
 
-
+#[allow(warnings)]
 #[derive(FileScanner)]
 pub enum MalwareWarnRaiseApp {
      #[regex(r#"fetch|XMLHttpRequest|axios|WebSocket|EventSource|navigator\.sendBeacon|postMessage|onmessage|addEventListener[(].message.[)]"#)]
@@ -44,6 +44,9 @@ pub enum MalwareWarnRaiseApp {
     #[regex(r"cmd|shell|exec|spawn|download|encrypt|decrypt|miner|wallet")]
     SupectKeyWord,
 }
+
+
+#[allow(warnings)]
 #[derive(FileScanner)]
 pub enum MalwareWarnRaiseImg {
     #[regex(r";|\{|\}|\[|\]|\(|\)|<|>|\$|\%|\^|\&|\*|\=|\\|\/|`|\~")]

@@ -24,6 +24,9 @@ build-host:
 run:
 	cd virtualFile && VFS_DIR=$(VFS) ADDRESS=$(ADDRESS) RUST_BACKTRACE=1 cargo run 
 
+no-compile-run:
+	cd virtualFile && VFS_DIR=$(VFS) ADDRESS=$(ADDRESS) ./target/release/virtualFile
+
 build-all: build-lib build-wasi build-host
 
 init: build-lib build-wasi run

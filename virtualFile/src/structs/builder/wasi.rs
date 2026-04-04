@@ -1,32 +1,23 @@
 use std::{env::VarError, error::Error};
 
 use wasmtime::{Engine, Store, component::{Component, TypedFunc,Instance, Linker}};
-use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder};
+use wasmtime_wasi::{ResourceTable, WasiCtxBuilder};
 
 use crate::{VFS_DIR,structs::{builder::director::Director, states::WasiState}, traits::builder::WasiUtilsBuild};
 use commun_utils_handler::errors::GlobalError;
 
 #[derive(Default)]
-pub struct WasiBuild<P,R> 
-where 
-    P: wasmtime::component::Lower + wasmtime::component::ComponentNamedList,
-    R: wasmtime::component::ComponentNamedList + wasmtime::component::Lift
-{
-    wasi:WasiCtx,
+pub struct WasiBuild {
     linker:Option<Linker<WasiState>>,
     component:Option<Component>,
     store:Option<Store<WasiState>>,
     engine:Engine,
     instance:Option<Instance>,
-    params:P,                              
-    returns:R
 }
 
 
-impl<P,R> WasiBuild<P,R> 
-where 
-    P: wasmtime::component::Lower + wasmtime::component::ComponentNamedList + std::default::Default,
-    R: wasmtime::component::ComponentNamedList + wasmtime::component::Lift
+impl WasiBuild
+
 {
     pub fn get_store(&mut self)->Result<&mut Store<WasiState>, Box<dyn Error>>
     {
@@ -39,13 +30,8 @@ where
 }
 
 
-impl<P,R> WasiUtilsBuild<P,R> for WasiBuild<P,R> 
-where 
-    P: wasmtime::component::Lower + wasmtime::component::ComponentNamedList ,
-    R: wasmtime::component::ComponentNamedList + wasmtime::component::Lift
+impl  WasiUtilsBuild for WasiBuild
 {
-
-
     fn set_engine(&mut self) {
         self.engine = Engine::default();
     }
@@ -72,7 +58,6 @@ where
         } else {
             Err(Box::new(VarError::NotPresent))
         }
-        
     }
 
     fn set_component(&mut self)->Result<(), Box<dyn Error>>
@@ -91,7 +76,10 @@ where
         }
     }
 
-    fn build(&mut self,func_name:&str)-> Result<TypedFunc<P,R>, Box<dyn Error>>
+    fn build<P,R>(&mut self,func_name:&str)-> Result<TypedFunc<P,R>, Box<dyn Error>>
+    where 
+    P: wasmtime::component::Lower + wasmtime::component::ComponentNamedList,
+    R: wasmtime::component::ComponentNamedList + wasmtime::component::Lift
     {
         if let (Some(instance),Some(store)) = (self.instance,&mut self.store){
             if let Some(func) = instance.get_func(&mut *store, func_name) {
@@ -112,8 +100,8 @@ where
     P: wasmtime::component::Lower + wasmtime::component::ComponentNamedList + std::default::Default,
     R: wasmtime::component::ComponentNamedList + wasmtime::component::Lift + std::default::Default,
 {
-    let mut builder:WasiBuild<P, R> = WasiBuild::default();
-    Director::construct_wasi(&mut builder)?;
+    let mut builder:WasiBuild = WasiBuild::default();
+    Director::construct_wasi::<P,R>(&mut builder)?;
     let typed_req = builder.build(func_name)?;
     let a = typed_req.call(builder.get_store()?,param)?;
     Ok(a)

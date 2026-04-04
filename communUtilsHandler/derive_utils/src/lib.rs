@@ -1,4 +1,7 @@
-use proc_macro::{Span, TokenStream};
+
+
+
+use proc_macro::TokenStream;
 use quote::quote;
 use syn::{self, Data, Ident, LitStr};
 // macro_rules! regex_patterns {

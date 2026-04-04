@@ -1,7 +1,6 @@
 use std::io;
 
 use commun_utils_handler::fs_strategies::ReadStrategy;
-use futures::lock::Mutex;
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxView, WasiView};
 
 use crate::{CACHE_CAP, structs::payloads::payload::DataFile};

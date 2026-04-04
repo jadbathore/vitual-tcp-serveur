@@ -1,6 +1,6 @@
 
 use std::{ 
-    collections::HashMap, hash::Hash, ops::Deref, sync::Arc
+    borrow::Cow, collections::HashMap, hash::Hash, ops::Deref, sync::Arc
 };
 use commun_utils_handler::errors::GlobalError;
 use futures::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
@@ -19,7 +19,7 @@ pub type TcpItem = (&'static[Arc<[u8]>],Arc<String>);
 impl<'item> SearchableItem for TcpItem {}
 impl<'item> SearchableItem for &'item DataFile {}
 
-#[derive(Default)]
+#[derive(Default,Debug)]
 pub struct IndexAccessor<K: Eq + Hash> {
     index:HashMap<K,usize>,
     len_index:usize,
@@ -60,7 +60,7 @@ impl<K: Eq + Hash> Deref for IndexSliceAccessor<K> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default,Debug)]
 struct IndexSliceAccessor<K: Eq + Hash> {
     accessor:IndexAccessor<K>,
     slice:Vec<(usize,usize)>,
@@ -111,16 +111,13 @@ pub trait PayloadSender:Iterator<Item:SearchableItem>
         }
     }
     
-    async fn read_splitsink(&self,write:&mut WriteSender,read:&mut ReadSender)
+    async fn read_splitsink(&self,write:&mut WriteSender,data:&str)
     {
-        if let Some( message) = read.next().await {
-            let data = message.unwrap_or(Message::binary(Vec::new())).into_text().unwrap_or(String::from(""));
-            if let Some(tcp_item) = self.search(data) 
+            if let Some(tcp_item) = self.search(data.to_owned()) 
             {
                 self.send_payload(write, tcp_item).await;
+                self.end_com(write).await;
             }
-        }
-        self.end_com(write).await;
     }
 }
 
@@ -130,7 +127,7 @@ pub trait StaticCollection<I> {
     fn iter(&'static self)-> Box<Self::Iter>;
 }
 
-#[derive(Default)]
+#[derive(Default,Debug)]
 pub struct CacheCollection
 {
     data:Vec<Arc<[u8]>>,
@@ -274,7 +271,6 @@ impl CacheContentIterator
 impl Iterator for  CacheContentIterator
 {
     type Item = TcpItem;
-
     fn next(&mut self) -> Option<Self::Item>
     { 
         if self.is_valid() {

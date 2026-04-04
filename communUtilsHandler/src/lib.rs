@@ -3,11 +3,11 @@ pub mod fs_strategies;
 pub mod collection;
 
 use colored::Colorize;
-use std::{borrow::Cow, collections::{HashMap, HashSet}, error::Error, iter, sync::Arc};
+use std::{collections::HashSet, error::Error, sync::Arc};
 
 use regex::bytes::{Regex, RegexSet};
 
-use crate::{collection::{Collection, GenericCollection}, fs_strategies::FileReader};
+use crate::fs_strategies::FileReader;
 
 
 static CAP_ERROR: usize = 10;

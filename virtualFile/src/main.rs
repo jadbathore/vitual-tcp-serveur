@@ -14,7 +14,7 @@ use commun_utils_handler::{
     fs_strategies::recursive_file_read
 };
 use tokio::{net::TcpListener, runtime::Runtime};
-use crate::{general::handle_client, structs::{builder::wasi::build_wasi_call, states::PredicatorCache}};
+use crate::{general::handle_client, structs::{builder::wasi::build_wasi_call, iterator::cached_data::PayloadSender, states::PredicatorCache}};
 use crate::{
     structs::{
         iterator::{cached_data::{CacheCollection,StaticCollection},file_info_reader::PayloadCollection}, 
@@ -76,6 +76,7 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
         }).map_err(|_|{Box::new(GlobalError::NotExistingDir(path.to_string_lossy().to_string()))})?;
         let payload = PayloadCollection::from(data_to_payload);
         let cache = CacheCollection::try_from(data_to_cache)?;
+        
         PAYLOADS.set(Arc::from(PayloadCollection::from(payload))).map_err(error_handle_set_oncelock)?;
         CACHE_PAYLOADS.set(Arc::from(CacheCollection::from(cache))).map_err(error_handle_set_oncelock)?;
     }
@@ -101,6 +102,7 @@ fn main()->Result<(),Box<dyn Error>>
         GlobalError::WasiError
     })?;
     set_payload_variable(VFS_DIR.get())?;
+
     if let (Some(payloads),Some(caches),Some(addr)) = (PAYLOADS.get(),CACHE_PAYLOADS.get(),ADDRESS.get()) {
         Runtime::new()?.block_on(async {
             let listener = TcpListener::bind(addr).await.unwrap();

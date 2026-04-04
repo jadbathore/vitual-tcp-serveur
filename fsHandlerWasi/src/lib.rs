@@ -5,7 +5,7 @@ mod utils;
 use bindings::Guest;
 use regex::Regex;
 use commun_utils_handler::{FileScanner, ScanBytesSubject, fs_strategies::{FileReader, recursive_file_read}};
-use std::{collections, error::Error, path::{Path, PathBuf}, string::FromUtf8Error, sync::Arc};
+use std::path::Path;
 // use commun_utils_handler::FileScanner;
 use crate::utils::lexer::{MalwareWarnRaiseApp, MalwareWarnRaiseImg};
 use indicatif::ProgressBar;

@@ -5,9 +5,4 @@ services:
     working_dir: /tcp-server/virtualFile
     ports:
       - "8080:8080" 
-    # build:
-    #   context: .
-    #   dockerfile: ./dockerfile
-    #   platforms:
-    #     - linux/arm64
     command: sh -c "cd /tcp-server && make run VM-CONTEXT=1"
