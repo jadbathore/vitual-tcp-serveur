@@ -14,13 +14,10 @@ use commun_utils_handler::{
     fs_strategies::recursive_file_read
 };
 use tokio::{net::TcpListener, runtime::Runtime};
-use crate::{general::handle_client, structs::{builder::wasi::build_wasi_call, iterator::cached_data::PayloadSender, states::PredicatorCache}};
-use crate::{
-    structs::{
-        iterator::{cached_data::{CacheCollection,StaticCollection},file_info_reader::PayloadCollection}, 
-        payloads::payload::DataFile
-    }
-};
+// use crate::{general::handle_client, structs::{builder::wasi::build_wasi_call, iterator::{utils::PayloadSender, states::PredicatorCache}{};
+use crate::{general::handle_client, structs::{
+        builder::wasi::build_wasi_call, iterator::collections::{CacheCollection,PayloadCollection,StaticAssetsCollection}, payloads::payload::DataFile, states::PredicatorCache
+    }};
 
 
 
@@ -37,8 +34,11 @@ lazy_static!(
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
     static ref ADDRESS:OnceLock<String> = OnceLock::new();
     static ref PROTOCOLS:[&'static str;2] = ["write","read"];
-    static ref CACHE_PAYLOADS:OnceLock<Arc<CacheCollection>> = OnceLock::new();
-    static ref PAYLOADS:OnceLock<Arc<PayloadCollection>> =OnceLock::new();
+
+    static ref CACHES:OnceLock<Arc<CacheCollection>> = OnceLock::new();
+    static ref PAYLOADS:OnceLock<Arc<PayloadCollection>> = OnceLock::new();
+    static ref ASSETS:OnceLock<Arc<StaticAssetsCollection>> = OnceLock::new();
+
 );
 
 fn error_handle_set_oncelock<T>(_:T)->Box<GlobalError>
@@ -76,9 +76,9 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
         }).map_err(|_|{Box::new(GlobalError::NotExistingDir(path.to_string_lossy().to_string()))})?;
         let payload = PayloadCollection::from(data_to_payload);
         let cache = CacheCollection::try_from(data_to_cache)?;
-        
-        PAYLOADS.set(Arc::from(PayloadCollection::from(payload))).map_err(error_handle_set_oncelock)?;
-        CACHE_PAYLOADS.set(Arc::from(CacheCollection::from(cache))).map_err(error_handle_set_oncelock)?;
+        PAYLOADS.set(Arc::from(payload)).map_err(error_handle_set_oncelock)?;
+        CACHES.set(Arc::from(cache)).map_err(error_handle_set_oncelock)?;
+        ASSETS.set(Arc::from(StaticAssetsCollection::new())).map_err(error_handle_set_oncelock)?;
     }
     Ok(())
 }
@@ -103,12 +103,12 @@ fn main()->Result<(),Box<dyn Error>>
     })?;
     set_payload_variable(VFS_DIR.get())?;
 
-    if let (Some(payloads),Some(caches),Some(addr)) = (PAYLOADS.get(),CACHE_PAYLOADS.get(),ADDRESS.get()) {
+    if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
         Runtime::new()?.block_on(async {
             let listener = TcpListener::bind(addr).await.unwrap();
             format_message(&("running websocket on ".to_owned() + addr));
             while let Ok((stream, socket_addr)) = listener.accept().await {
-                tokio::spawn(handle_client(stream,payloads.iter(),caches.iter()));
+                tokio::spawn(handle_client(stream,assets));
                 let time = time::OffsetDateTime::now_utc();
                 println!("data sended at {time} to {}",socket_addr.to_string().green());
             }

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::OnceLock};
+use std::sync::{Arc,OnceLock};
 use futures::StreamExt;
 use tokio::net::TcpStream;
 
@@ -9,20 +9,19 @@ use tokio_tungstenite::{accept_hdr_async,
 };
 
 use crate::{
-    PROTOCOLS, structs::{
-        iterator::cached_data::{ReadSender, SearchableItem, TcpItem, WriteSender}, 
-        payloads::payload::{self,  DataFile},
-    }
+    PROTOCOLS, 
+    structs::iterator::{collections::StaticAssetsCollection, utils::{ReadSender, WriteSender}}
 };
-use crate::structs::iterator::cached_data::PayloadSender;
-
 
 enum Protocols {
     Read,
     Write
 }
 
-
+pub enum Asset {
+    Cache(usize),
+    Payload(usize)
+}
 
 pub struct NavigatorProtocols
 {
@@ -88,40 +87,31 @@ impl NavigatorProtocols {
     //     }
     // }
 
-    pub async fn resolve_protocol<P,C>(&self,payload:Box<P>,cache:Box<C>,write:&mut WriteSender,read:&mut ReadSender)
-    where 
-        P:PayloadSender<Item = &'static DataFile> + 'static,
-        C:PayloadSender<Item = TcpItem> + 'static 
+    pub async fn resolve_protocol(&self,assets:&Arc<StaticAssetsCollection>,write:&mut WriteSender,read:&mut ReadSender)
     {
         if let Some(protocol) = self.protocols.get() {
             match protocol {
                 Protocols::Read => {
                     if let Some( message) = read.next().await {
-                        let data = message.unwrap_or(Message::binary(Vec::new())).into_text().unwrap_or(String::from(""));
-                        let cdata = Cow::Owned(data);
-                        payload.read_splitsink(write,&cdata).await;
-                        cache.read_splitsink(write,&cdata).await;
+                        let query = message.unwrap_or(Message::binary(Vec::new())).into_text().unwrap_or(String::from(""));
+                        assets.search(query, write).await;
                     }
                 },
                 Protocols::Write => {
-                    payload.write_splitsink(write).await;
-                    cache.write_splitsink(write).await;
+                    assets.write_all(write).await;
                 }
             }
         }
     }
 }
 
-pub async fn handle_client<P,C>(stream:TcpStream,payloads:Box<P>,caches:Box<C>)
-    where 
-        P:PayloadSender<Item = &'static DataFile> + 'static,
-        C:PayloadSender<Item = TcpItem> + 'static 
+pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
 {
     let stream_navigator = NavigatorProtocols::new();
     let ws_stream = accept_hdr_async(stream, stream_navigator.hands_shake_callback()).await;
     if let Ok(ws) = ws_stream {
         let (mut write,mut read) = ws.split(); 
-        stream_navigator.resolve_protocol(payloads, caches,&mut write,&mut read).await;
+        stream_navigator.resolve_protocol(assets,&mut write,&mut read).await;
         // let a = [caches,payloads];
         // stream_navigator.handle_read([payloads], write, read);
         

@@ -1,5 +1,5 @@
 // use logos::Logos;
-use deriveUtils::{FileScanner};
+use derive_utils::{FileScanner};
 use commun_utils_handler::{FileScanner,ScanBytesSubject};
 
 #[allow(warnings)]

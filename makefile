@@ -13,7 +13,7 @@ testa:
 	echo $(ADDRESS)
 build-lib:
 	cd communUtilsHandler && cargo build --release \
-	&& cd deriveUtils && cargo build --release
+	&& cd derive_utils && cargo build --release
 
 build-wasi:
 	cd fsHandlerWasi && cargo component build --target $(TARGET_WASI) --release --target-dir ../virtualFile/target
