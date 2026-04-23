@@ -29,14 +29,16 @@ use crate::{general::handle_client, structs::{
 // }
 
     static CACHE_CAP:u64 = 1 * 1024 * 1024 * 1024; 
+    static CACHES:OnceLock<Arc<CacheCollection>> = OnceLock::new();
+    static PAYLOADS:OnceLock<Arc<PayloadCollection>> = OnceLock::new();
+
+
 
 lazy_static!(
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
     static ref ADDRESS:OnceLock<String> = OnceLock::new();
     static ref PROTOCOLS:[&'static str;2] = ["write","read"];
 
-    static ref CACHES:OnceLock<Arc<CacheCollection>> = OnceLock::new();
-    static ref PAYLOADS:OnceLock<Arc<PayloadCollection>> = OnceLock::new();
     static ref ASSETS:OnceLock<Arc<StaticAssetsCollection>> = OnceLock::new();
 
 );
@@ -76,6 +78,7 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
         }).map_err(|_|{Box::new(GlobalError::NotExistingDir(path.to_string_lossy().to_string()))})?;
         let payload = PayloadCollection::from(data_to_payload);
         let cache = CacheCollection::try_from(data_to_cache)?;
+
         PAYLOADS.set(Arc::from(payload)).map_err(error_handle_set_oncelock)?;
         CACHES.set(Arc::from(cache)).map_err(error_handle_set_oncelock)?;
         ASSETS.set(Arc::from(StaticAssetsCollection::new())).map_err(error_handle_set_oncelock)?;

@@ -12,7 +12,6 @@ fn main()->Result<(),Box<dyn Error>>{
     })?;
 
     let mut hasher = Hasher::new();
-    dbg!(&files);
     for file in files.iter() {
         let mut buffers = Vec::new();
         file.flush_data(&mut buffers)?;

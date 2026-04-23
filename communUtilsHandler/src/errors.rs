@@ -12,6 +12,7 @@ pub enum GlobalError {
     JsonSerialize,
     FileToBig,
     WasiError,
+    SingleInstanceBreach
 }
 
 impl fmt::Display for GlobalError {
@@ -25,6 +26,7 @@ impl fmt::Display for GlobalError {
             GlobalError::NotExistingDir(dir) => &("the dir:'".to_owned() + &dir + ""),
             GlobalError::FileToBig => "File to big to read",
             GlobalError::WasiError => "Something went wrong during the runing of a wasi component",
+            GlobalError::SingleInstanceBreach => "instance cannot be duplicated"
         };
         f.write_str(&description.red().bold().to_string())
     }

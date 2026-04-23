@@ -1,12 +1,12 @@
 use std::{error::Error, path::Path};
 
-use serde::Serialize;
+use serde::{Serialize,Deserialize};
 use commun_utils_handler::{
     errors::GlobalError,
     fs_strategies::{CHUNK_SMALL_MEDIUM, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE}
 };
 
-#[derive(Serialize, Debug)]
+#[derive(Deserialize,Serialize, Debug)]
 pub struct JsonInfo {
     url: String,
     size:u64,
@@ -32,9 +32,9 @@ impl JsonInfo {
         ).map_err(|err|{
             GlobalError::from(err)
         })?;
-        if let Some(a) = path.file_name() {
+        if let Some(a) = path.to_str() {
             Ok(JsonInfo { 
-                url: a.to_string_lossy().to_string(),
+                url: a.to_string(),
                 chunks:chunck,
                 size: size,
                 type_file: ext.to_string()
@@ -64,6 +64,11 @@ impl JsonInfo {
     pub fn get_chunks(&self)-> usize
     {
         self.chunks
+    }
+
+    pub fn get_url(self)->String
+    {
+        self.url
     }
 
     // pub fn type_file(self)-> Cow<'a,str>

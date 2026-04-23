@@ -1,7 +1,6 @@
-use std::sync::Arc;
+use std::{error::Error, iter, sync::{Arc, OnceLock}};
+use commun_utils_handler::{collection::Collection, errors::GlobalError};
 use futures::{SinkExt, stream::{SplitSink, SplitStream}};
-
-
 use tokio::net::TcpStream;
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
 
@@ -45,18 +44,18 @@ pub trait PayloadSender:Iterator<Item:SearchableItem>
 
     fn get_item(&self,index:usize)->Option<Self::Item>;
 
-    async fn end_com(&self,write:&mut WriteSender){
-        let _ = write.send(Message::Text(String::from("end"))).await;
-        let _ = write.send(Message::Close(None)).await;
-    } 
-
-
     async fn write_splitsink(&self,write:&mut WriteSender)
     {
         for i in self.get_collection().iter() {
             self.send_payload(write, i).await;
         }
-        self.end_com(write).await;
+    }
+}
+
+pub trait  PayloadCloser {
+    async fn end_com(&self,write:&mut WriteSender){
+        let _ = write.send(Message::Text(String::from("end"))).await;
+        let _ = write.send(Message::Close(None)).await;
     }
 }
 
@@ -65,4 +64,20 @@ pub trait StaticCollection {
     type Iter:Iterator<Item = Self::StaticElement> +'static;
     fn iter(&'static self)-> Box<Self::Iter>;
     fn length(&self)->usize;
+}
+
+pub trait SingleToneInstanceCollection where Self: 'static
+{
+    type Initializer;
+    const INSTANCE:&'static OnceLock<Arc<Self>>;
+
+    fn new(&'static self,instance:Self::Initializer)->Result<&Self,GlobalError>;
+
+    fn init_from(&'static self,instance:Self::Initializer)->Result<&Self,GlobalError>
+    {
+        if let Some(_) = Self::INSTANCE.get() {
+            return Err(GlobalError::SingleInstanceBreach);
+        }
+        self.new(instance)
+    }
 }
