@@ -15,6 +15,16 @@ static CAP_ERROR: usize = 10;
 pub trait FileScanner {
     fn scanner<'scanner>()->ScanBytesSubject<'scanner>;
 }
+ 
+pub trait IterableEnum where Self: Sized{
+    fn iter_enum()-> Vec<(Self,String)>;
+    
+    fn compare_value(compare:&str)->Option<(Self,String)>
+    {
+        Self::iter_enum().into_iter().find(|(_,value)| value == compare)
+    } 
+}
+
 
 pub struct ScanWarnByte<'key> {
     warn_name:&'key str,
@@ -88,6 +98,5 @@ impl<'keys> ScanBytesSubject<'keys>
         }
         Ok(())
     }
-
 }
 

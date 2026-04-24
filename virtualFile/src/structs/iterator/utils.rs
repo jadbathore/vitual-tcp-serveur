@@ -1,10 +1,9 @@
-use std::{error::Error, iter, sync::{Arc, OnceLock}};
-use commun_utils_handler::{collection::Collection, errors::GlobalError};
+use std::sync::Arc;
 use futures::{SinkExt, stream::{SplitSink, SplitStream}};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
 
-use crate::structs::{ payloads::payload::DataFile};
+use crate::structs::payloads::payload::DataFile;
 
 
 pub trait SearchableItem {}
@@ -61,23 +60,37 @@ pub trait  PayloadCloser {
 
 pub trait StaticCollection {
     type StaticElement:SearchableItem + 'static;
-    type Iter:Iterator<Item = Self::StaticElement> +'static;
+    type Iter:Iterator<Item = Self::StaticElement> + 'static;
     fn iter(&'static self)-> Box<Self::Iter>;
     fn length(&self)->usize;
 }
 
-pub trait SingleToneInstanceCollection where Self: 'static
-{
-    type Initializer;
-    const INSTANCE:&'static OnceLock<Arc<Self>>;
+// pub trait SingleToneInstanceCollection where Self: Default + 'static
+// {
+//     type Initializer;
+//     const INSTANCE:&'static OnceLock<Arc<Self>>;
 
-    fn new(&'static self,instance:Self::Initializer)->Result<&Self,GlobalError>;
+//     fn new(&self,instance:Self::Initializer)->Result<PhantomData<Self::Initializer>,GlobalError>;
 
-    fn init_from(&'static self,instance:Self::Initializer)->Result<&Self,GlobalError>
-    {
-        if let Some(_) = Self::INSTANCE.get() {
-            return Err(GlobalError::SingleInstanceBreach);
-        }
-        self.new(instance)
-    }
-}
+//     fn init_from(&self,instance:Self::Initializer)->Result<&Self,GlobalError>
+//     {
+//         if let Some(_) = Self::INSTANCE.get() {
+//             return Err(GlobalError::SingleInstanceBreach);
+//         }
+//         let a = self.new(instance)?;
+//         Ok(&self)
+//     }
+// }
+
+// impl SingleToneInstanceCollection for PayloadCollection {
+//     type Initializer = Vec<DataFile>;
+//     const INSTANCE:&'static OnceLock<Arc<Self>> = &PAYLOADS;
+
+//     fn new(&self,initializer:Self::Initializer)->Result<PhantomData<Self::Initializer>,GlobalError> {
+//         let a = Self {
+//             payloads: initializer,
+//             ressource_type:PhantomData
+//         };
+//         Ok(a.ressource_type)
+//     }
+// }

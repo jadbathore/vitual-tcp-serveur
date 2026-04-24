@@ -2,6 +2,7 @@ package component:fs-handler-wasi;
 
 world example {
     export TA0043:func();
+    export exec-utils:func(command: string);
 }
 
 

@@ -7,7 +7,7 @@ mod structs;
 mod general_macros;
 mod traits;
 
-
+use commun_utils_handler::IterableEnum;
 use colored::Colorize;
 use commun_utils_handler::{
     errors::GlobalError,
@@ -15,7 +15,7 @@ use commun_utils_handler::{
 };
 use tokio::{net::TcpListener, runtime::Runtime};
 // use crate::{general::handle_client, structs::{builder::wasi::build_wasi_call, iterator::{utils::PayloadSender, states::PredicatorCache}{};
-use crate::{general::handle_client, structs::{
+use crate::{general::{Protocols, handle_client}, structs::{
         builder::wasi::build_wasi_call, iterator::collections::{CacheCollection,PayloadCollection,StaticAssetsCollection}, payloads::payload::DataFile, states::PredicatorCache
     }};
 
@@ -37,7 +37,8 @@ use crate::{general::handle_client, structs::{
 lazy_static!(
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
     static ref ADDRESS:OnceLock<String> = OnceLock::new();
-    static ref PROTOCOLS:[&'static str;2] = ["write","read"];
+    static ref PROTOCOLS:[&'static str;3] = ["write","read","exec"];
+    
 
     static ref ASSETS:OnceLock<Arc<StaticAssetsCollection>> = OnceLock::new();
 
@@ -76,12 +77,12 @@ fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
             }
             Ok(())
         }).map_err(|_|{Box::new(GlobalError::NotExistingDir(path.to_string_lossy().to_string()))})?;
-        let payload = PayloadCollection::from(data_to_payload);
+        let payload = PayloadCollection::try_from(data_to_payload)?;
         let cache = CacheCollection::try_from(data_to_cache)?;
 
         PAYLOADS.set(Arc::from(payload)).map_err(error_handle_set_oncelock)?;
         CACHES.set(Arc::from(cache)).map_err(error_handle_set_oncelock)?;
-        ASSETS.set(Arc::from(StaticAssetsCollection::new())).map_err(error_handle_set_oncelock)?;
+        ASSETS.set(Arc::from(StaticAssetsCollection::new()?)).map_err(error_handle_set_oncelock)?;
     }
     Ok(())
 }
@@ -104,6 +105,7 @@ fn main()->Result<(),Box<dyn Error>>
         println!("{}",GlobalError::WasiError);
         GlobalError::WasiError
     })?;
+
     set_payload_variable(VFS_DIR.get())?;
 
     if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {

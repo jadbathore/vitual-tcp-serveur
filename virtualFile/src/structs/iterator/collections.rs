@@ -1,13 +1,12 @@
-use std::{ borrow::Cow, collections::HashMap, sync::{Arc, OnceLock}};
+use std::{ collections::HashMap, sync::{Arc, OnceLock}};
 use colored::Colorize;
 use commun_utils_handler::errors::GlobalError;
 use futures::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
 // use std::{ num::TryFromIntError,sync::OnceLock };
 
-use crate::{ CACHES, PAYLOADS, general::Asset, structs::{
-        iterator::utils::{ IndexSliceHelper, PayloadCloser, PayloadSender, SearchableItem, SingleToneInstanceCollection, StaticCollection, TcpItem, WriteSender}, 
-        payloads::{self, json_struct::JsonInfo, payload::DataFile}
+use crate::{ ASSETS, CACHES, PAYLOADS, general::Asset, structs::{
+        builder::wasi::build_wasi_call, iterator::utils::{ IndexSliceHelper, PayloadCloser, PayloadSender, SearchableItem, StaticCollection, TcpItem, WriteSender}, payloads::{json_struct::JsonInfo, payload::DataFile}
     }};
 
 
@@ -56,53 +55,27 @@ async fn handle_writer<SI,I,S>(static_collection:&'static OnceLock<Arc<S>>,write
     }
 }
 
-async fn handle_all_writer<SI,I,S>(payloads:&'static OnceLock<Arc<S>>,cache:&'static OnceLock<Arc<S>>,writer:&mut WriteSender)
-{
-
-}
-
 //---------------------------------------------------------------------------
 //--------------------- static collection assets ----------------------------
 //---------------------------------------------------------------------------
 
 pub struct PayloadCollection
 {
-    payloads:Vec<DataFile>
+    pub payloads:Vec<DataFile>,
 }
 
-impl SingleToneInstanceCollection for PayloadCollection where Self:'static 
+impl TryFrom<Vec<DataFile>> for PayloadCollection
 {
-    type Initializer = Vec<DataFile>;
-    const INSTANCE:&'static OnceLock<Arc<PayloadCollection>> = &PAYLOADS;
-
-    fn new(&self,instance:Self::Initializer)->Result<&Self,GlobalError> {
-        Ok(self)
+    type Error = Box<GlobalError>;
+    fn try_from(data_files: Vec<DataFile>) -> Result<Self,Self::Error> {
+        if let Some(_) = PAYLOADS.get() {
+            return Err(Box::new(GlobalError::SingleInstanceBreach));
+        }
+        Ok(PayloadCollection { 
+            payloads: data_files,
+        })
     }
-
-    
-
-
-    // fn init()->Result<Self,Self::Errors> where Self: Sized {
-    //     if let Some(_) = Self::INSTANCE.get() {
-    //         return Err(GlobalError::SingleInstanceBreach);
-    //     }
-    //     Ok(PayloadCollection { 
-    //         payloads: data_files,
-    //     })
-    // }
 }
-
-// impl From<Vec<DataFile>> for PayloadCollection
-// {
-//     fn from(data_files: Vec<DataFile>) -> Self {
-//         if Some(_) = PAYLOADS.get() {
-//             return Err(GlobalError);
-//         }
-//         PayloadCollection { 
-//             payloads: data_files,
-//         }
-//     }
-// }
 
 impl StaticCollection for PayloadCollection {
     type StaticElement = &'static DataFile;
@@ -121,31 +94,29 @@ impl StaticCollection for PayloadCollection {
 #[derive(Default,Debug)]
 pub struct CacheCollection
 {
-    pub data:Vec<Arc<[u8]>>,
-    pub payloads_stringify:Vec<Arc<String>>,
-    pub slice_index: Vec<(usize,usize)>,
+    pub(crate) data:Vec<Arc<[u8]>>,
+    pub(crate) payloads_stringify:Vec<Arc<String>>,
+    pub(crate) slice_index: Vec<(usize,usize)>,
     // json_infos:Vec<JsonInfo>
     // pub accesor:IndexSliceAccessor<String>
 }
 
 impl TryFrom<Vec<DataFile>> for CacheCollection {
-
     type Error = Box<GlobalError>;
-
     fn try_from(data_files: Vec<DataFile>) -> Result<Self, Self::Error> {
+        if let Some(_) = CACHES.get() {
+            return Err(Box::new(GlobalError::SingleInstanceBreach));
+        }
         let mut json_infos_stringity = Vec::new();
-        let mut datas = Vec::new();
+        let mut datas:Vec<Arc<[u8]>> = Vec::new();
         let mut slice:Vec<(usize,usize)> = Vec::new();
-        let mut helper = IndexSliceHelper::default();
-        // let mut accessor = IndexSliceAccessor::default();
-
+        let mut helper:IndexSliceHelper = IndexSliceHelper::default();
         for data_file in data_files.iter()
         {
             helper.append_slice(data_file.get_payload().get_chunks(),&mut slice);
             data_file.flush_data(&mut datas).map_err(|_|GlobalError::JsonSerialize)?;
             json_infos_stringity.push(Arc::new(data_file.get_payload().stringify_to_json()?));
         }
-
         Ok(CacheCollection {
             payloads_stringify:json_infos_stringity,
             data:datas,
@@ -154,9 +125,11 @@ impl TryFrom<Vec<DataFile>> for CacheCollection {
     }
 }
 
+
+
 impl StaticCollection for CacheCollection {
     type StaticElement = TcpItem;
-    type Iter = StaticAssetIterator<CacheCollection>;
+    type Iter = StaticAssetIterator<Self>;
 
     fn iter(&'static self)-> Box<Self::Iter> {
         Box::new(StaticAssetIterator::new(self))
@@ -166,6 +139,10 @@ impl StaticCollection for CacheCollection {
         self.payloads_stringify.len()
     }
 }
+
+// pub struct CacheCollection {}
+
+
 
 //---------------------------------------------------------------------------
 //--------------------- accessor Assets element  ----------------------------
@@ -177,8 +154,11 @@ pub struct StaticAssetsCollection {
 
 impl StaticAssetsCollection {
 
-    pub fn new()->Self 
+    pub fn new()->Result<Self,Box<GlobalError>>
     {
+        if let Some(_) = ASSETS.get() {
+            return Err(Box::new(GlobalError::SingleInstanceBreach));
+        }
         let mut hash_asset = HashMap::new();
         adding_accesor_asset(&CACHES, &mut |index,(_,payloads)|{
             let json_info:JsonInfo = serde_json::from_str(payloads).unwrap();
@@ -187,7 +167,7 @@ impl StaticAssetsCollection {
         adding_accesor_asset(&PAYLOADS, &mut |index,item|{
             hash_asset.insert(item.get_string_lossy_url().to_string(), Asset::Payload(index));
         });
-        StaticAssetsCollection { accesor: hash_asset }
+        Ok(StaticAssetsCollection { accesor: hash_asset })
     }
 
     pub async fn search(&self,query:String,writer:&mut WriteSender) 
@@ -213,10 +193,15 @@ impl StaticAssetsCollection {
         handle_writer(&CACHES, writer).await;
         self.end_com(writer).await;
     }
+
+    pub async fn exec(&self,command:String,writer:&mut WriteSender)
+    {
+        build_wasi_call::<(String,),()>((command,), "exec-utils").unwrap();
+    }
 }
 
 
-pub struct StaticAssetIterator<T:'static> {
+pub struct StaticAssetIterator<T:'static +?Sized> {
     index:usize,
     payload_collection:&'static T
 }
@@ -326,8 +311,6 @@ impl PayloadSender for StaticAssetIterator<CacheCollection>
         self.payload_collection
     }
 
-
-    
     fn get_item(&self,index:usize)->Option<Self::Item> 
     {
         if self.index_exist(index) {

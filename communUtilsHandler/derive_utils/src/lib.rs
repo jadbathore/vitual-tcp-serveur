@@ -4,6 +4,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{self, Data, Ident, LitStr};
+
 // macro_rules! regex_patterns {
 //     ($($pat:expr),* $(,)?) => {
 //         const COUNT: usize = <[()]>::len(&[$(regex_patterns!(@sub $pat)),*]);
@@ -12,23 +13,50 @@ use syn::{self, Data, Ident, LitStr};
 //     (@sub $x:expr) => (());
 // }
 
-
 #[proc_macro_derive(FileScanner,attributes(regex))]
-pub fn hello_macro_derive(input: TokenStream) -> TokenStream {
-    // Construit une représentation du code Rust en arborescence
-    // syntaxique que nous pouvons manipuler
+pub fn file_scanner_derive(input: TokenStream) -> TokenStream {
     let file_scanner_to_deriver = syn::parse(input).unwrap();
-
-    // Construit l'implémentation du trait
-    match impl_hello_macro(&file_scanner_to_deriver) {
+    match impl_file_scanner_macro(&file_scanner_to_deriver) {
         Ok(token) => token ,
         Err(err_token) =>  err_token
     }
 }
 
+#[proc_macro_derive(IterableEnum)]
+pub fn iterable_enum_macro_derive(input: TokenStream) -> TokenStream {
+    let enum_deriver = syn::parse(input).unwrap();
+    match impl_iterable_enum_macro(&enum_deriver) {
+        Ok(token) => token ,
+        Err(err_token) =>  err_token
+    }
+}
 
+fn impl_iterable_enum_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
+    if let Data::Enum(data_enum) = &ast.data {
+        // let (mut variants,mut regex):(Vec<&Ident>,Vec<LitStr>) = (Vec::new(),Vec::new());
+        let variants:Vec<&Ident> = data_enum.variants.iter().map(|i| &i.ident).collect();
+        let name = &ast.ident;
+        let generation = quote! {
+            impl IterableEnum for #name
+            {
+                fn iter_enum()-> Vec<(#name,String)>
+                {
+                    vec![#((#name::#variants,stringify!(#variants).to_string()),)*]
+                }
+            }
+        };
+        Ok(generation.into())
+    } else {
+        return Err(syn::Error::new_spanned(
+                ast,
+                "IterableEnum can only be used on enums"
+            )
+            .to_compile_error()
+            .into());
+    }
+}
 
-fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
+fn impl_file_scanner_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
     if let Data::Enum(data_enum) = &ast.data {
         let (mut variants,mut regex):(Vec<&Ident>,Vec<LitStr>) = (Vec::new(),Vec::new());
         for variant in data_enum.variants.iter() {
@@ -63,8 +91,6 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
         }
         let name = &ast.ident;
         let len_regex:usize = variants.len();
-        
-
         let generation = quote! {
             impl FileScanner for #name
             {
@@ -88,3 +114,6 @@ fn impl_hello_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenStream> {
             .into());
     }
 } 
+
+
+// #[proc_macro_derive(FileScanner)]

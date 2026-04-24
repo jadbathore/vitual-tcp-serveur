@@ -1,6 +1,8 @@
 use std::sync::{Arc,OnceLock};
 use futures::StreamExt;
 use tokio::net::TcpStream;
+use commun_utils_handler::IterableEnum;
+use derive_utils::IterableEnum;
 
 use tokio_tungstenite::{accept_hdr_async, 
     tungstenite::{ 
@@ -13,10 +15,15 @@ use crate::{
     structs::iterator::{collections::StaticAssetsCollection, utils::{ReadSender, WriteSender}}
 };
 
-enum Protocols {
+
+#[derive(IterableEnum,Debug)]
+pub enum Protocols {
     Read,
-    Write
+    Write,
+    Exec
 }
+
+
 
 pub enum Asset {
     Cache(usize),
@@ -54,15 +61,24 @@ impl NavigatorProtocols {
                             ErrorResponse::new(Some(String::from("can't parse : ") + inner))
                         })?;
                         res.headers_mut().insert("Sec-WebSocket-Protocol",header);
-                        match inner {
-                            x if PROTOCOLS[0] == x => {
-                                self.protocols.set(Protocols::Write).map_err(error_handle_set_oncelock)?;
-                            },
-                            x if PROTOCOLS[1] == x => {
-                                self.protocols.set(Protocols::Read).map_err(error_handle_set_oncelock)?;
-                            }
-                            _ => ()
+
+                        if let Some((protocols,_)) = Protocols::compare_value(inner)
+                        {
+                            self.protocols.set(protocols).map_err(error_handle_set_oncelock)?;
                         }
+                        // match inner {
+                            
+                        //     x if PROTOCOLS[0] == x => {
+                        //         self.protocols.set(Protocols::Write).map_err(error_handle_set_oncelock)?;
+                        //     },
+                        //     x if PROTOCOLS[1] == x => {
+                        //         self.protocols.set(Protocols::Read).map_err(error_handle_set_oncelock)?;
+                        //     }
+                        //     x if PROTOCOLS[2] == x => {
+                        //         self.protocols.set(Protocols::Exec).map_err(error_handle_set_oncelock)?
+                        //     }
+                        //     _ => ()
+                        // }
                     } else {
                         return Err(ErrorResponse::new(Some(String::from("protocole :") + inner + "not accept" )));
                     }
@@ -99,6 +115,9 @@ impl NavigatorProtocols {
                 },
                 Protocols::Write => {
                     assets.write_all(write).await;
+                },
+                Protocols::Exec => {
+
                 }
             }
         }
