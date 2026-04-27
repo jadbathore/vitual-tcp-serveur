@@ -1,8 +1,8 @@
 use std::sync::{Arc,OnceLock};
 use futures::StreamExt;
 use tokio::net::TcpStream;
-use commun_utils_handler::IterableEnum;
-use derive_utils::IterableEnum;
+use commun_utils_handler::{IterableStringifyEnum};
+use derive_utils::IterableStringifyEnum;
 
 use tokio_tungstenite::{accept_hdr_async, 
     tungstenite::{ 
@@ -10,25 +10,36 @@ use tokio_tungstenite::{accept_hdr_async,
     }
 };
 
-use crate::{
-    PROTOCOLS, 
-    structs::iterator::{collections::StaticAssetsCollection, utils::{ReadSender, WriteSender}}
-};
+use crate::structs::iterator::{collections::StaticAssetsCollection, utils::{ReadSender, WriteSender}};
+
+use commun_utils_handler::errors::GlobalError;
+
+//---------------------------------------------------------------------------
+//----------------------------  utils ---------------------------------------
+//---------------------------------------------------------------------------
 
 
-#[derive(IterableEnum,Debug)]
+
+//---------------------------------------------------------------------------
+//----------------------------  general enum  -------------------------------
+//---------------------------------------------------------------------------
+
+
+#[derive(IterableStringifyEnum)]
 pub enum Protocols {
     Read,
     Write,
-    Exec
+    ExecJS,
 }
-
-
 
 pub enum Asset {
     Cache(usize),
     Payload(usize)
 }
+
+//---------------------------------------------------------------------------
+//----------------------------  Strategies ----------------------------------
+//---------------------------------------------------------------------------
 
 pub struct NavigatorProtocols
 {
@@ -44,7 +55,7 @@ fn error_handle_set_oncelock<T>(_:T)->ErrorResponse
 
 impl NavigatorProtocols {
 
-    pub fn new()->Self 
+    pub fn new()-> Self 
     {
         NavigatorProtocols { protocols: OnceLock::new() }
     }
@@ -56,29 +67,12 @@ impl NavigatorProtocols {
                     let inner = p.to_str().map_err(|err|{
                         ErrorResponse::new(Some(err.to_string()))
                     })?;
-                    if PROTOCOLS.contains(&inner) {
+                    if let Ok(protocols) = Protocols::try_from(inner) {
                         let header = inner.parse::<HeaderValue>().map_err(|_|{
                             ErrorResponse::new(Some(String::from("can't parse : ") + inner))
                         })?;
                         res.headers_mut().insert("Sec-WebSocket-Protocol",header);
-
-                        if let Some((protocols,_)) = Protocols::compare_value(inner)
-                        {
-                            self.protocols.set(protocols).map_err(error_handle_set_oncelock)?;
-                        }
-                        // match inner {
-                            
-                        //     x if PROTOCOLS[0] == x => {
-                        //         self.protocols.set(Protocols::Write).map_err(error_handle_set_oncelock)?;
-                        //     },
-                        //     x if PROTOCOLS[1] == x => {
-                        //         self.protocols.set(Protocols::Read).map_err(error_handle_set_oncelock)?;
-                        //     }
-                        //     x if PROTOCOLS[2] == x => {
-                        //         self.protocols.set(Protocols::Exec).map_err(error_handle_set_oncelock)?
-                        //     }
-                        //     _ => ()
-                        // }
+                        self.protocols.set(protocols).map_err(error_handle_set_oncelock)?;
                     } else {
                         return Err(ErrorResponse::new(Some(String::from("protocole :") + inner + "not accept" )));
                     }
@@ -86,22 +80,6 @@ impl NavigatorProtocols {
             Ok(res)
         }
     }
-
-    // pub async fn handle_write<PS:PayloadSender + 'static>(&self,sendable_pair:[Box<P>;2],write:&mut WriteSender,read:&mut ReadSender)
-    // {
-    //     for sender in sendable_pair.iter() {
-    //         sender.write_splitsink(write).await;
-    //     }
-    // }
-
-    // pub async fn handle_read<PS: PayloadSender + 'static>(&self,sender_pair:[Box<PS>;2],write:&mut WriteSender,read:&mut ReadSender){
-    //     if let Some( message) = read.next().await {
-    //         let data = Cow::from(message.unwrap_or(Message::binary(Vec::new())).into_text().unwrap_or(String::from("")));
-    //         for sender in sender_pair.iter() {
-    //             sender.read_splitsink(write, data.to_string()).await;
-    //         }
-    //     }
-    // }
 
     pub async fn resolve_protocol(&self,assets:&Arc<StaticAssetsCollection>,write:&mut WriteSender,read:&mut ReadSender)
     {
@@ -116,8 +94,11 @@ impl NavigatorProtocols {
                 Protocols::Write => {
                     assets.write_all(write).await;
                 },
-                Protocols::Exec => {
-
+                Protocols::ExecJS => {
+                    if let Some( message) = read.next().await {
+                        let query = message.unwrap_or(Message::binary(Vec::new())).into_text().unwrap_or(String::from(""));
+                        assets.exec(query, write).await;
+                    }
                 }
             }
         }

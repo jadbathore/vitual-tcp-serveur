@@ -6,8 +6,6 @@ mod general;
 mod structs;
 mod general_macros;
 mod traits;
-
-use commun_utils_handler::IterableEnum;
 use colored::Colorize;
 use commun_utils_handler::{
     errors::GlobalError,
@@ -37,11 +35,7 @@ use crate::{general::{Protocols, handle_client}, structs::{
 lazy_static!(
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
     static ref ADDRESS:OnceLock<String> = OnceLock::new();
-    static ref PROTOCOLS:[&'static str;3] = ["write","read","exec"];
-    
-
     static ref ASSETS:OnceLock<Arc<StaticAssetsCollection>> = OnceLock::new();
-
 );
 
 fn error_handle_set_oncelock<T>(_:T)->Box<GlobalError>
@@ -118,6 +112,7 @@ fn main()->Result<(),Box<dyn Error>>
                 println!("data sended at {time} to {}",socket_addr.to_string().green());
             }
         });
-    }   
+    }  
+    
     Ok(())
 }

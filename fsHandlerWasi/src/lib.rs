@@ -13,7 +13,6 @@ struct Component;
 
 
 
-
 // fn build_preopendir_collection(filter:bool)->Result<ReadCollection<(PathBuf,ReadStrategy)>,Box<dyn Error>>
 // {
 //     let mut paths:Vec<(PathBuf,ReadStrategy)> = Vec::new();
@@ -59,28 +58,11 @@ impl Guest for Component {
         
         scan(image_files, &mut MalwareWarnRaiseImg::scanner());
         scan(application_files,&mut  MalwareWarnRaiseApp::scanner());
-        
-        // let mut paths:Vec<FileReader> = Vec::new();
-
-        // let regex = Regex::new(r"https").unwrap();
-        // dbg!(regex.captures("https").iter().len());
-        // MalwareWarnRaise::scan(String::from("https://"));
-        // let malware_raise = MalwareWarnRaise::new();
-        // MalwareWarnRaise::scan(String::from("https"));
-        // println!("test");
-        // test();
-        // let mut paths:Vec<FileReader> = Vec::new();
-        // recursive_file_read(Path::new("./fs"), &mut |path| {
-        //     let app_regex = Regex::new(r"(?i)\.(((c|m)?js)|wasm)").unwrap();
-        //     if app_regex.is_match(&path.to_string_lossy()) {
-        //         paths.push(FileReader::new(path).unwrap());
-        //     }   
-        //     Ok(())
-        // }).unwrap();
-        // let test = DataCollection::from(paths);
-        
     }
 
+    fn exec_utils(command:String) -> () {
+        
+    }
 }
 
 bindings::export!(Component with_types_in bindings);

@@ -34,6 +34,8 @@ init: build-lib build-wasi run
 clean-all:
 	cd fsHandlerWasi && cargo clean 
 	cd virtualFile && cargo clean 
+	cd communUtilsHandler && cargo clean \
+	&& cd derive_utils && cargo clean
 
 build-image: 
 	docker buildx build -f ./dockerfile . -t $(IMAGE) --platform linux/arm64 

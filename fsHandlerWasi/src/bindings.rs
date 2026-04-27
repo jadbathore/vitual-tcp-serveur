@@ -7,15 +7,26 @@ pub unsafe fn _export_ta0043_cabi<T: Guest>() {
     #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
     T::ta0043();
 }
+#[doc(hidden)]
+#[allow(non_snake_case)]
+pub unsafe fn _export_exec_utils_cabi<T: Guest>(arg0: *mut u8, arg1: usize) {
+    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+    let len0 = arg1;
+    let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
+    T::exec_utils(_rt::string_lift(bytes0));
+}
 pub trait Guest {
     fn ta0043() -> ();
+    fn exec_utils(command: _rt::String) -> ();
 }
 #[doc(hidden)]
 macro_rules! __export_world_example_cabi {
     ($ty:ident with_types_in $($path_to_types:tt)*) => {
         const _ : () = { #[unsafe (export_name = "TA0043")] unsafe extern "C" fn
         export_ta0043() { unsafe { $($path_to_types)*:: _export_ta0043_cabi::<$ty > () }
-        } };
+        } #[unsafe (export_name = "exec-utils")] unsafe extern "C" fn
+        export_exec_utils(arg0 : * mut u8, arg1 : usize,) { unsafe { $($path_to_types)*::
+        _export_exec_utils_cabi::<$ty > (arg0, arg1) } } };
     };
 }
 #[doc(hidden)]
@@ -27,6 +38,16 @@ mod _rt {
     pub fn run_ctors_once() {
         wit_bindgen_rt::run_ctors_once();
     }
+    pub use alloc_crate::vec::Vec;
+    pub unsafe fn string_lift(bytes: Vec<u8>) -> String {
+        if cfg!(debug_assertions) {
+            String::from_utf8(bytes).unwrap()
+        } else {
+            String::from_utf8_unchecked(bytes)
+        }
+    }
+    pub use alloc_crate::string::String;
+    extern crate alloc as alloc_crate;
 }
 /// Generates `#[unsafe(no_mangle)]` functions to export the specified type as
 /// the root implementation of all generated traits.
@@ -63,11 +84,12 @@ pub(crate) use __export_example_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 185] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07<\x01A\x02\x01A\x02\x01\
-@\0\x01\0\x04\0\x06TA0043\x01\0\x04\0!component:fs-handler-wasi/example\x04\0\x0b\
-\x0d\x01\0\x07example\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-com\
-ponent\x070.227.1\x10wit-bindgen-rust\x060.41.0";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 214] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07Y\x01A\x02\x01A\x04\x01\
+@\0\x01\0\x04\0\x06TA0043\x01\0\x01@\x01\x07commands\x01\0\x04\0\x0aexec-utils\x01\
+\x01\x04\0!component:fs-handler-wasi/example\x04\0\x0b\x0d\x01\0\x07example\x03\0\
+\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bi\
+ndgen-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

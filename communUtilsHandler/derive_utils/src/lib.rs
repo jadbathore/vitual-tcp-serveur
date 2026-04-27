@@ -22,7 +22,7 @@ pub fn file_scanner_derive(input: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(IterableEnum)]
+#[proc_macro_derive(IterableStringifyEnum)]
 pub fn iterable_enum_macro_derive(input: TokenStream) -> TokenStream {
     let enum_deriver = syn::parse(input).unwrap();
     match impl_iterable_enum_macro(&enum_deriver) {
@@ -37,13 +37,28 @@ fn impl_iterable_enum_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenS
         let variants:Vec<&Ident> = data_enum.variants.iter().map(|i| &i.ident).collect();
         let name = &ast.ident;
         let generation = quote! {
-            impl IterableEnum for #name
+            impl IterableStringifyEnum for #name
             {
-                fn iter_enum()-> Vec<(#name,String)>
+                fn iter_enum()-> Vec<#name>
                 {
-                    vec![#((#name::#variants,stringify!(#variants).to_string()),)*]
+                    vec![#(#name::#variants,)*]
                 }
             }
+
+            impl TryFrom<&str> for #name 
+            {
+                type Error = GlobalError;
+
+                fn try_from(value:&str)-> Result<Self,Self::Error>
+                {
+                    match value {
+                        #(x if x == stringify!(#variants).to_string() => Ok(#name::#variants),)* 
+                        _ => Err(GlobalError::StringEnumInit(String::from(value)))
+                    }
+                }
+
+            }
+
         };
         Ok(generation.into())
     } else {
