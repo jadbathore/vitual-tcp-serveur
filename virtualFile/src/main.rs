@@ -7,15 +7,30 @@ mod structs;
 mod general_macros;
 mod traits;
 use colored::Colorize;
-use commun_utils_handler::{
-    errors::GlobalError,
-    fs_strategies::recursive_file_read
-};
+use commun_utils_handler::errors::GlobalError;
 use tokio::{net::TcpListener, runtime::Runtime};
-// use crate::{general::handle_client, structs::{builder::wasi::build_wasi_call, iterator::{utils::PayloadSender, states::PredicatorCache}{};
-use crate::{general::{Protocols, handle_client}, structs::{
-        builder::wasi::build_wasi_call, iterator::collections::{CacheCollection,PayloadCollection,StaticAssetsCollection}, payloads::payload::DataFile, states::PredicatorCache
-    }};
+
+
+
+#[cfg(feature = "client")]
+use crate::{
+    general::handle_client,
+    structs::iterator::collections::{CacheCollection,PayloadCollection,StaticAssetsCollection}
+};
+
+#[cfg(feature = "deamon")]
+use crate::general::handle_deamon;
+
+use crate::structs::builder::wasi::build_wasi_call;
+
+
+use commun_utils_handler::fs_strategies::recursive_file_read;
+
+use crate::{
+    structs::{
+        payloads::payload::DataFile, states::PredicatorCache
+    }
+};
 
 
 
@@ -26,17 +41,26 @@ use crate::{general::{Protocols, handle_client}, structs::{
 //     // static NEXT_ID: RefCell<u32> = RefCell::new(0);
 // }
 
-    static CACHE_CAP:u64 = 1 * 1024 * 1024 * 1024; 
-    static CACHES:OnceLock<Arc<CacheCollection>> = OnceLock::new();
-    static PAYLOADS:OnceLock<Arc<PayloadCollection>> = OnceLock::new();
-
+   
 
 
 lazy_static!(
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
     static ref ADDRESS:OnceLock<String> = OnceLock::new();
-    static ref ASSETS:OnceLock<Arc<StaticAssetsCollection>> = OnceLock::new();
 );
+
+
+#[cfg(feature = "client")]
+lazy_static!(
+    static ref CACHES:OnceLock<Arc<CacheCollection>> = OnceLock::new();
+    static ref PAYLOADS:OnceLock<Arc<PayloadCollection>> = OnceLock::new();
+);
+
+#[cfg(feature = "client")]
+static ASSETS:OnceLock<Arc<StaticAssetsCollection>> = OnceLock::new();
+
+static CACHE_CAP:u64 = 1 * 1024 * 1024 * 1024; 
+
 
 fn error_handle_set_oncelock<T>(_:T)->Box<GlobalError>
 {
@@ -56,6 +80,8 @@ fn set_env_var()->Result<(), Box<dyn Error>>
     }
 }
 
+
+#[cfg(feature = "client")]
 fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
 {
     if let Some(path) = vfs_path {
@@ -92,27 +118,45 @@ fn format_message(str:&str)
 
 }
 
+
 fn main()->Result<(),Box<dyn Error>> 
 {
     set_env_var()?;
+
     build_wasi_call::<(),()>((), "TA0043").map_err(|_|{
         println!("{}",GlobalError::WasiError);
         GlobalError::WasiError
     })?;
 
-    set_payload_variable(VFS_DIR.get())?;
+    #[cfg(feature = "client")]
+    {
+        set_payload_variable(VFS_DIR.get())?;
+        if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
+            Runtime::new()?.block_on(async {
+                let listener = TcpListener::bind(addr).await.unwrap();
+                format_message(&("client-websocket on ".to_owned() + addr));
+                while let Ok((stream, socket_addr)) = listener.accept().await {
+                    tokio::spawn(handle_client(stream,assets));
+                    let time = time::OffsetDateTime::now_utc();
+                    println!("data sended at {time} to {}",socket_addr.to_string().green());
+                }
+            });
+        }  
+    }
 
-    if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
+    #[cfg(feature = "deamon")]
+    {
+        if let Some(addr) = ADDRESS.get() {
         Runtime::new()?.block_on(async {
             let listener = TcpListener::bind(addr).await.unwrap();
-            format_message(&("running websocket on ".to_owned() + addr));
+            format_message(&("deamon-websocket on ".to_owned() + addr));
             while let Ok((stream, socket_addr)) = listener.accept().await {
-                tokio::spawn(handle_client(stream,assets));
+                tokio::spawn(handle_deamon(stream));
                 let time = time::OffsetDateTime::now_utc();
                 println!("data sended at {time} to {}",socket_addr.to_string().green());
             }
         });
-    }  
-    
+    } 
+    }
     Ok(())
 }

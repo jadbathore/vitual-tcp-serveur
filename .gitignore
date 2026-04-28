@@ -2,3 +2,4 @@
 **/Cargo.lock
 communUtilsHandler/deriveUtils/target/*
 bin.sh
+.vscode/*

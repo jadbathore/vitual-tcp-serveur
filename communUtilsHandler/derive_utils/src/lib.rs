@@ -37,6 +37,8 @@ fn impl_iterable_enum_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenS
         let variants:Vec<&Ident> = data_enum.variants.iter().map(|i| &i.ident).collect();
         let name = &ast.ident;
         let generation = quote! {
+            use std::str::FromStr;
+
             impl IterableStringifyEnum for #name
             {
                 fn iter_enum()-> Vec<#name>
@@ -45,20 +47,15 @@ fn impl_iterable_enum_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenS
                 }
             }
 
-            impl TryFrom<&str> for #name 
-            {
-                type Error = GlobalError;
-
-                fn try_from(value:&str)-> Result<Self,Self::Error>
-                {
+            impl FromStr for #name {
+                type Err = String;
+                fn from_str(value: &str) -> Result<Self, Self::Err> {
                     match value {
                         #(x if x == stringify!(#variants).to_string() => Ok(#name::#variants),)* 
-                        _ => Err(GlobalError::StringEnumInit(String::from(value)))
+                        _ => Err(String::from(value))
                     }
                 }
-
             }
-
         };
         Ok(generation.into())
     } else {

@@ -29,7 +29,7 @@ impl DataFile
     pub fn new(path:&Path)->Result<Self,Box<dyn Error>>
     {
         Ok(DataFile { 
-            parent: FileReader::new(path)?,
+            parent: FileReader::try_from(path)?,
             payload: Arc::new(JsonInfo::new(path)?),
         })
     }

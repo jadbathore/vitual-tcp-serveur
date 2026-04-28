@@ -48,10 +48,10 @@ impl Guest for Component {
         let mut application_files:Vec<FileReader> = Vec::new();
         recursive_file_read(Path::new("./fs"), &mut |path| {
             if Regex::new(r"(?i)\.(((c|m)?js)|wasm)").unwrap().is_match(&path.to_string_lossy()) {
-                application_files.push(FileReader::new(path).unwrap());
+                application_files.push(FileReader::try_from(path).unwrap());
             }   
             if Regex::new(r"(?i).(jpe?g|png)").unwrap().is_match(&path.to_string_lossy()){
-                image_files.push(FileReader::new(path).unwrap());
+                image_files.push(FileReader::try_from(path).unwrap());
             }
             Ok(())
         }).unwrap();
@@ -60,7 +60,7 @@ impl Guest for Component {
         scan(application_files,&mut  MalwareWarnRaiseApp::scanner());
     }
 
-    fn exec_utils(command:String) -> () {
+    fn exec_utils(_:String) -> () {
         
     }
 }

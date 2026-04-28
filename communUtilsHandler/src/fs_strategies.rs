@@ -1,7 +1,5 @@
 use std::{
-    borrow::Cow, 
-    error::Error, 
-    fs::{self, DirEntry},io::{self, BufReader, Read}, path::Path, sync::Arc
+    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::Path, sync::Arc
 };
 
 use crate::errors::GlobalError;
@@ -95,7 +93,7 @@ impl<'cow> ReadStrategies for ChunckRead<'cow> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum ReadStrategy {
     Smale,
     Medium,
@@ -103,6 +101,9 @@ pub enum ReadStrategy {
     ExtraLarge,
     // GigaLarge
 }
+
+
+
 
 impl<'buffer> TryFrom<&'buffer Path> for ReadStrategy {
     type Error = io::Error;
@@ -151,12 +152,21 @@ pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Err
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct FileReader
 {
     inner:Arc<Path>,
     strategy:ReadStrategy
 }
+
+impl Deref for FileReader {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
 
 impl<'a> TryFrom<&'a Path> for FileReader {
 
@@ -172,13 +182,6 @@ impl<'a> TryFrom<&'a Path> for FileReader {
 
 impl FileReader
 {
-    pub fn new(path:&Path)->Result<Self,Box<dyn Error>>
-    {
-        Ok(FileReader { 
-            inner: Arc::from(path), 
-            strategy: ReadStrategy::try_from(path)?
-        })
-    }
 
     pub fn get_string_lossy_url(&self)->Cow<'_, str>
     {

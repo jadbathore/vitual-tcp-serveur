@@ -7,7 +7,7 @@ fn main()->Result<(),Box<dyn Error>>{
     
     let mut files:Vec<FileReader> = Vec::new();
     recursive_file_read(Path::new("../test"),&mut |i|{
-        files.push(FileReader::new(i)?);
+        files.push(FileReader::try_from(i)?);
         Ok(())
     })?;
 

@@ -5,10 +5,15 @@ use futures::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
 // use std::{ num::TryFromIntError,sync::OnceLock };
 
-use crate::{ ASSETS, CACHES, PAYLOADS, general::Asset, structs::{
-        builder::wasi::build_wasi_call, iterator::utils::{ IndexSliceHelper, PayloadCloser, PayloadSender, SearchableItem, StaticCollection, TcpItem, WriteSender}, payloads::{json_struct::JsonInfo, payload::DataFile}
-    }};
-
+use crate::general::Asset;
+use crate::{ 
+        CACHES, PAYLOADS, ASSETS,
+        structs::{
+            builder::wasi::build_wasi_call, 
+            iterator::utils::{ IndexSliceHelper, PayloadCloser, PayloadSender, SearchableItem, StaticCollection, TcpItem, WriteSender}, 
+            payloads::{json_struct::JsonInfo, payload::DataFile}
+        }
+    };
 
 //---------------------------------------------------------------------------
 //-------------------------   utils function   ------------------------------
@@ -190,14 +195,14 @@ impl StaticAssetsCollection {
         self.end_com(writer).await;
     }
 
-    pub async fn exec(&self,command:String,writer:&mut WriteSender)
+    pub async fn exec(&self,command:String,_:&mut WriteSender)
     {
         build_wasi_call::<(String,),()>((command,), "exec-utils").unwrap();
     }
 }
 
 
-pub struct StaticAssetIterator<T:'static +?Sized> {
+pub struct StaticAssetIterator<T:'static + StaticCollection + ?Sized> {
     index:usize,
     payload_collection:&'static T
 }
@@ -328,87 +333,5 @@ impl PayloadSender for StaticAssetIterator<CacheCollection>
 
 impl PayloadCloser for StaticAssetIterator<CacheCollection>{}
 
+#[cfg(feature = "client")]
 impl PayloadCloser for StaticAssetsCollection{}
-
-// impl Iterator for StaticAssetIterator<PayloadCollection>
-// {
-//     type Item = &'static DataFile;
-
-//     fn next(&mut self) -> Option<Self::Item>
-//     {
-//         if self.is_valid() {
-//             let payload_request =  Some(&self.payload_collection.payloads[self.index]);
-//             self.index += 1;
-//             return payload_request;
-//         }
-//         None
-//     }
-// }
-
-// struct StaticAssetIterator<T:'static>
-// {
-//     index:usize,
-//     payload_collection:&'static T
-// }
-
-// impl PayloadSender for StaticAssetIterator<CacheCollection>
-// {
-//     type Collection = CacheCollection;
-    
-//     fn collection<'iter>(&'iter self)-> &'static Self::Collection {
-//         self.payload_collection
-//     }
-
-//     fn get_item(&self,index:usize)-> Option<Self::Item>
-//     {
-//         // self.is_valid();
-//         // if let Some(index) = self.collection.accesor.get_index(url) {
-//         //     let (start,end) = self.collection.accesor.get_slice(*index);
-//         //     return Some((&self.collection.data[start..end],Arc::clone(&self.collection.payloads_stringify[*index])));
-//         // }
-//         None
-//     }
-
-//     async fn send_payload(&self,write:&mut WriteSender,item:TcpItem) 
-//     {
-//         let (datas,payload) = item;
-//         let _ = write.send(Message::Text(payload.to_string())).await;
-        
-//         for data in datas {
-//             let _ = write.send(Message::Binary(data.to_vec())).await;
-//         }
-//     }
-// }
-
-// impl Iterator for StaticAssetIterator<CacheCollection>
-// {
-//     type Item = TcpItem;
-//     fn next(&mut self) -> Option<Self::Item>
-//     { 
-//         if self.is_valid() {
-//             let (start,end) = self.payload_collection.accesor.get_slice(self.index);
-//             let data_current:&[Arc<[u8]>] = &self.payload_collection.data[start..end];
-//             let payload_request =  Some((data_current,Arc::clone(&self.payload_collection.payloads_stringify[self.index])));
-//             self.index += 1;
-//             return payload_request;
-//         }
-//         None
-//     }
-// }
-
-// impl<C,P> PartialEq for AssetSender<C,P>
-// where 
-//         C:StaticCollection<Iter=StaticAssetIterator<CacheCollection>>,
-//         P:StaticCollection<Iter=StaticAssetIterator<PayloadCollection>> 
-// {
-//     fn eq(&self, other: &Self) -> bool {
-
-//         if let 
-//         match other {
-//             AssetSender::Cache(_) => {
-                
-//             }
-//         }
-//     }
-// }
-

@@ -5,4 +5,4 @@ services:
     working_dir: /tcp-server/virtualFile
     ports:
       - "8080:8080" 
-    command: sh -c "cd /tcp-server && no-compile-run VM-CONTEXT=1"
+    command: sh -c "cd /tcp-server && no-compile-run-client VM-CONTEXT=1"
