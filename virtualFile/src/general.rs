@@ -1,16 +1,17 @@
-use std::sync::{Arc,OnceLock};
+use std::{ffi::{OsStr, OsString}, fs, path::PathBuf, sync::{Arc,OnceLock}, vec};
 use futures::StreamExt;
+use regex::Regex;
 use serde::de::Error;
 use tokio::net::TcpStream;
 use commun_utils_handler::{IterableStringifyEnum};
 use derive_utils::IterableStringifyEnum;
-
+use std::path::Path;
 use tokio_tungstenite::{accept_async, accept_hdr_async, tungstenite::{ 
         Message, handshake::{client::Request, server::ErrorResponse}, http::{HeaderValue, Response}
     }
 };
-
 use tokio_tungstenite::tungstenite::Error as TungError;
+
 #[cfg(feature = "client")]
 use crate::structs::iterator::{
     collections::StaticAssetsCollection,
@@ -18,6 +19,7 @@ use crate::structs::iterator::{
 };
 
 
+use std::fs::File;
 
 //---------------------------------------------------------------------------
 //----------------------------  general enum  -------------------------------
@@ -117,13 +119,50 @@ pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
     } 
 }
 
+
+fn error_url<T>(_:T)->TungError
+{
+    TungError::Utf8
+}
+
+
+
+
+
+
+
 #[cfg(feature = "deamon")]
 pub async fn handle_deamon(stream:TcpStream)->Result<(),TungError>
 {
     let ws_stream = accept_async(stream).await?;
-    let (mut write,mut read) = ws_stream.split(); 
-    while let Some(Message) = read.next().await  {
-        dbg!(Message);
+        let (mut write,mut read) = ws_stream.split(); 
+    if let Some(Ok(message)) = read.next().await {
+        use std::borrow::Cow;
+
+        use regex::RegexSet;
+
+        let mut file:String = message.into_text()?;
+        let regexes = [r"\.+\/",r"\/+"," "];
+        let regex_set = RegexSet::new(regexes).map_err(error_url)?;
+        for index in regex_set.matches(&file).iter() {
+            let replacement = match index {
+                0 => "/",
+                1 => "-",
+                _ => ""
+            };
+
+            let regex = Regex::new(regexes[index]).unwrap();
+            file = regex.replace_all(&file, replacement).to_string();
+        }
+        dbg!(file);
+        // let file = message.into_text().unwrap_or(String::from(""));
+
+        // if let Ok(file_path) = 
+        // let file = File::create(Path::new(&file))?;
+        // while let Some(Ok(message)) = read.next().await  {
+        //     dbg!(message);
+        // }
     }
+    
     Ok(())
-}
+} 
