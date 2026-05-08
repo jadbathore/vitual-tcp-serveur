@@ -18,6 +18,11 @@ use crate::structs::iterator::{
     utils::{ReadSender, WriteSender}
 };
 
+use zstd::bulk;
+
+use regex::RegexSet;
+
+use crate::VFS_DIR;
 
 use std::fs::File;
 
@@ -120,41 +125,63 @@ pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
 }
 
 
-fn error_url<T>(_:T)->TungError
-{
-    TungError::Utf8
-}
-
-
-
-
-
-
-
 #[cfg(feature = "deamon")]
 pub async fn handle_deamon(stream:TcpStream)->Result<(),TungError>
 {
     let ws_stream = accept_async(stream).await?;
-        let (mut write,mut read) = ws_stream.split(); 
+    let (_,mut read) = ws_stream.split(); 
     if let Some(Ok(message)) = read.next().await {
-        use std::borrow::Cow;
-
-        use regex::RegexSet;
-
-        let mut file:String = message.into_text()?;
-        let regexes = [r"\.+\/",r"\/+"," "];
-        let regex_set = RegexSet::new(regexes).map_err(error_url)?;
-        for index in regex_set.matches(&file).iter() {
+        let mut sub_new_file:String = message.into_text()?;
+        let regexes = [r"\.+\/",r"\/"," "];
+        let regex_set = RegexSet::new(regexes).map_err(|_| TungError::Utf8)?;
+        for index in regex_set.matches(&sub_new_file).iter() {
             let replacement = match index {
-                0 => "/",
+                0 => "",
                 1 => "-",
                 _ => ""
             };
-
             let regex = Regex::new(regexes[index]).unwrap();
-            file = regex.replace_all(&file, replacement).to_string();
+            sub_new_file = regex.replace_all(&sub_new_file, replacement).to_string();
         }
-        dbg!(file);
+
+        if let Some(vfs_dir) = VFS_DIR.get() {
+            let mut path_file:PathBuf = PathBuf::from(vfs_dir);
+            path_file.extend(&PathBuf::from(sub_new_file));
+            fs::create_dir(&path_file)?;
+            // let mut overall_hash_compression:String = String::new();
+            while let Some(Ok(message)) = read.next().await  {
+                use std::io::Write;
+                let mut temp_sub = path_file.clone();
+                let binary:Vec<u8> = message.into_data();
+                let hash_stringify = blake3::hash(&binary).to_string();
+                temp_sub.extend(&PathBuf::from(&hash_stringify));
+                let mut file:File = fs::File::create_new(temp_sub)?;
+                let compress = &bulk::compress(&binary, 3)?;
+                // overall_hash_compression += &hash_stringify;
+                file.write(&compress)?;
+            }
+        // dbg!(path_file);
+        }
+
+        // if let Some(vfs_dir) = VFS_DIR.get() {
+        //     while let Some(Ok(message)) = read.next().await  {
+        //         let mut path_file:PathBuf = PathBuf::from(vfs_dir);
+        //         let binary:Vec<u8> = message.into_data();
+        //         dbg!(&binary);
+        //         // let mut file:File = fs::File::create_new(binary)?;
+        //         // let mut hasher = DefaultHasher::new();
+        //         // hasher.write(&binary);
+        //         // Hash::hash_slice(&[10,10,310,10,310,10,310,10,310,10,3], &mut hasher);
+        //         // println!("{}",hasher.finish());
+        //         // file.write(&binary)?;
+
+        //         // dbg!(message);
+        //         // file.write(buf);
+        //     }
+        //     // dbg!(path_file);
+        // }
+        // let file = fs::File::create_new(path)
+        // dbg!();
         // let file = message.into_text().unwrap_or(String::from(""));
 
         // if let Ok(file_path) = 
@@ -162,6 +189,8 @@ pub async fn handle_deamon(stream:TcpStream)->Result<(),TungError>
         // while let Some(Ok(message)) = read.next().await  {
         //     dbg!(message);
         // }
+    }else{ 
+        dbg!("messa");
     }
     
     Ok(())

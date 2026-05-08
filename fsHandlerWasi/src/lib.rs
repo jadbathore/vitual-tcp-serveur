@@ -41,7 +41,6 @@ fn scan(files:Vec<FileReader>,scanner:&mut ScanBytesSubject)
 
 impl Guest for Component {
 
-    // test d'observation des fichiers et comportement 
     fn ta0043()
     {
         let mut image_files:Vec<FileReader> = Vec::new();

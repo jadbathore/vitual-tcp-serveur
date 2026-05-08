@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::{self, Debug}};
+use std::{error::Error, ffi::CStr, fmt::{self, Debug}};
 
 use colored::Colorize;
 
@@ -14,6 +14,7 @@ pub enum GlobalError {
     WasiError,
     SingleInstanceBreach,
     StringEnumInit(String),
+    IoError(String)
 }
 
 impl fmt::Display for GlobalError {
@@ -28,7 +29,8 @@ impl fmt::Display for GlobalError {
             GlobalError::FileToBig => "File to big to read.",
             GlobalError::WasiError => "Something went wrong during the runing of a wasi component.",
             GlobalError::SingleInstanceBreach => "instance cannot be duplicated.",
-            GlobalError::StringEnumInit(variante) => &("variante enum: ".to_owned() + variante + "doesn't exist.")
+            GlobalError::StringEnumInit(variante) => &("variante enum: ".to_owned() + variante + "doesn't exist."),
+            GlobalError::IoError(string) => string
         };
         f.write_str(&description.red().bold().to_string())
     }
@@ -36,6 +38,11 @@ impl fmt::Display for GlobalError {
 
 impl Error for GlobalError {}
 
+impl From<std::io::Error> for Box<GlobalError> {
+    fn from(value: std::io::Error) -> Self {
+        Box::new(GlobalError::IoError(value.kind().to_string()))
+    }
+}
 
 impl From<std::num::TryFromIntError> for GlobalError {
     fn from(_: std::num::TryFromIntError) -> Self {

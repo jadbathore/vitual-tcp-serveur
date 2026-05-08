@@ -3,7 +3,7 @@ use std::{error::Error, path::Path};
 use serde::{Serialize,Deserialize};
 use commun_utils_handler::{
     errors::GlobalError,
-    fs_strategies::{CHUNK_SMALL_MEDIUM, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE}
+    fs_strategies::{CHUNK_MEDIUM_SLICE, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE}
 };
 
 #[derive(Deserialize,Serialize, Debug)]
@@ -25,8 +25,8 @@ impl JsonInfo {
             match size {
                 // x if x >= MEDIUM_FILE => ,
                 x if x <= LARGE_FILE =>  1 ,
-                x if x <= HUGE_FILE => x / CHUNK_SMALL_SLICE,
-                x if x <= GIGA_FILE  => x / CHUNK_SMALL_MEDIUM,
+                x if x <= HUGE_FILE => x / CHUNK_SMALL_SLICE as u64,
+                x if x <= GIGA_FILE  => x / CHUNK_MEDIUM_SLICE as u64,
                 _ => 0
             }
         ).map_err(|err|{

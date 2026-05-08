@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::Path, sync::Arc
+    borrow::Cow, error::Error, fs::{self, DirEntry, File}, io::{self, BufReader, Read, Write}, ops::Deref, path::Path, sync::Arc
 };
 
 use crate::errors::GlobalError;
@@ -8,11 +8,11 @@ pub const MEDIUM_FILE: u64 = 64 * 1024;
 pub const LARGE_FILE: u64 = 10 * 1024 * 1024;
 pub const HUGE_FILE: u64 = 100 * 1024 * 1024;
 pub const GIGA_FILE: u64 = 1 * 1024 * 1024 * 1024; 
-pub const CHUNK_SMALL_SLICE:u64 = 128 * 1024;
-pub const CHUNK_SMALL_MEDIUM:u64 =  CHUNK_SMALL_SLICE * 2;
+pub const CHUNK_SMALL_SLICE:usize = 128 * 1024;
+pub const CHUNK_MEDIUM_SLICE:usize =  CHUNK_SMALL_SLICE * 2;
 
-pub trait ReadStrategies {
-
+pub trait StorageStrategies {
+    fn storeFile(&self,buffers:Vec<u8>)->Result<(),Box<dyn Error>>;
     fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box<dyn Error>>;
 }
 
@@ -27,8 +27,15 @@ impl<'cow> SmaleRead<'cow> {
     }
 }
 
-impl<'cow> ReadStrategies for SmaleRead<'cow> {
+impl<'cow> StorageStrategies for SmaleRead<'cow> {
     // type Data = Vec<u8>;
+
+    fn storeFile(&self,buffers:Vec<u8>)-> Result<(),Box<dyn Error>> {
+        let mut file:File = fs::File::create_new(&self.inner)?;
+        file.write(&buffers);
+        Ok(())
+    }
+
     fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box<dyn Error>>
     {
         let data = fs::read(&self.inner)?;
@@ -52,7 +59,14 @@ impl<'cow> MediumRead<'cow> {
     }
 }
 
-impl<'cow> ReadStrategies for MediumRead<'cow> {
+impl<'cow> StorageStrategies for MediumRead<'cow> {
+
+    fn storeFile(&self,buffers:Vec<u8>)->Result<(),Box<dyn Error>> {
+        
+
+        Ok(())
+    }
+
     fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box< dyn Error>> {
         let data = fs::File::open(&self.inner)?;
         let mut sub_buf:Vec<u8> = Vec::with_capacity(self.capacity); 
@@ -69,26 +83,26 @@ struct ChunckRead<'cow> {
 }
 
 impl<'cow> ChunckRead<'cow> {
+    
     fn new(entry:&'cow Path,chunk_size:usize)->Self
     { 
         ChunckRead {inner: Cow::from(entry), chunck_size:chunk_size}
     }
 }
 
-impl<'cow> ReadStrategies for ChunckRead<'cow> {
+impl<'cow> StorageStrategies for ChunckRead<'cow> {
     // type Data = Vec<u8>;
     fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box< dyn Error>> {
         let data = fs::File::open(&self.inner)?;
-        let mut sub_capacity_buffer = Vec::with_capacity(self.chunck_size);
+        let mut sub_capacity_buffer = vec![0;self.chunck_size];
         let mut reader = BufReader::new(data);
         loop {
             let byte_read = reader.read(&mut sub_capacity_buffer)?;
             if byte_read == 0 {
                 break;
             }
-            sub_capacity_buffer.truncate(byte_read);
+            buffers.push(Arc::from(&sub_capacity_buffer[..byte_read]));
         }
-        buffers.push(Arc::from(sub_capacity_buffer));
         Ok(())
     }
 }
@@ -121,21 +135,20 @@ impl<'buffer> TryFrom<&'buffer Path> for ReadStrategy {
 impl ReadStrategy {
     pub fn excute_reader_strategy<'a>(&'a self,buffer:&mut Vec<Arc<[u8]>>,path:&'a Path)-> Result<(),Box<dyn Error>>
     {
-        let result:Box<dyn ReadStrategies> = match &self {
+        let result:Box<dyn StorageStrategies> = match &self {
             Self::Smale => Box::new(SmaleRead::new( &path)),
             Self::Medium => Box::new(MediumRead::new(&path)?),
-            Self::Large => Box::new(ChunckRead::new(&path, 128 * 1024)),
-            Self::ExtraLarge => Box::new(ChunckRead::new(&path, 256 * 1024)),
+            Self::Large => Box::new(ChunckRead::new(&path, CHUNK_SMALL_SLICE)),
+            Self::ExtraLarge => Box::new(ChunckRead::new(&path, CHUNK_MEDIUM_SLICE)),
         };
         result.flush(buffer)?;
         Ok(())
     }
 }
 
-fn get_entries(path:&Path)-> Result<Vec<DirEntry>,io::Error>
+pub fn get_entries(path:&Path)-> Result<Vec<DirEntry>,io::Error>
 {
-    let readir = fs::read_dir(path)?;
-    readir.collect()
+    fs::read_dir(path)?.collect()
 }
 
 pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Error>> 
@@ -151,6 +164,12 @@ pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Err
     }
     Ok(())
 }
+
+
+
+
+
+
 
 #[derive(Debug,Clone)]
 pub struct FileReader
@@ -182,7 +201,6 @@ impl<'a> TryFrom<&'a Path> for FileReader {
 
 impl FileReader
 {
-
     pub fn get_string_lossy_url(&self)->Cow<'_, str>
     {
         self.inner.to_string_lossy()
@@ -192,7 +210,6 @@ impl FileReader
     {
         &self.strategy
     }
-
 
     pub fn size(&self)->Result<u64,io::Error>
     {
@@ -206,3 +223,4 @@ impl FileReader
         Ok(())
     }
 }
+

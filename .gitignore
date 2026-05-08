@@ -3,3 +3,4 @@
 communUtilsHandler/deriveUtils/target/*
 bin.sh
 .vscode/*
+test/**

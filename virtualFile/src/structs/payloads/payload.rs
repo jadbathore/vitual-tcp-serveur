@@ -1,3 +1,5 @@
+#[cfg(feature = "deamon")]
+use std::path::PathBuf;
 use std::{error::Error,ops::Deref, path::Path, sync::Arc };
 use commun_utils_handler::fs_strategies::FileReader;
 // use fs_handler_wasi::commun_utils::{item::FileReader,read_strategies::ReadStrategy};
@@ -33,9 +35,20 @@ impl DataFile
             payload: Arc::new(JsonInfo::new(path)?),
         })
     }
-
+ 
     pub fn get_payload(&self)-> Arc<JsonInfo>
     {
         self.payload.clone()
     }
 }
+
+
+#[derive(Debug)]
+pub struct CloudFile
+{
+    inner:Arc<Path>,
+    payload:Arc<JsonInfo>,
+}
+
+
+
