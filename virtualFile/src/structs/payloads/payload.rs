@@ -43,12 +43,12 @@ impl DataFile
 }
 
 
-#[derive(Debug)]
-pub struct CloudFile
-{
-    inner:Arc<Path>,
-    payload:Arc<JsonInfo>,
-}
+// #[derive(Debug)]
+// pub struct CloudFile
+// {
+//     inner:Arc<Path>,
+//     payload:Arc<JsonInfo>,
+// }
 
 
 

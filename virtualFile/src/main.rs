@@ -2,8 +2,11 @@
 #[cfg(feature = "client")]
 use std::fs;
 use std::{env, error::Error, path::PathBuf, sync::{Arc, OnceLock}};
+
 #[cfg(feature = "client")]
 use commun_utils_handler::fs_strategies::get_entries;
+
+
 use lazy_static::lazy_static;
 
 mod general;
@@ -131,6 +134,9 @@ fn main()->Result<(),Box<dyn Error>>
         GlobalError::WasiError
     })?;
 
+    // let PathBuf = PathBuf::from("../../test/big_4k.exr/000f3cd5eba1b0d03906e08824849255cf8e805cdb38af15b954942c8be5f096");
+    // let a = PathBuf.iter().;
+
     #[cfg(feature = "client")]
     {
         set_payload_variable(VFS_DIR.get())?;
@@ -147,20 +153,20 @@ fn main()->Result<(),Box<dyn Error>>
         // }  
     }
 
-    #[cfg(feature = "deamon")]
-    {
-        dbg!("deamon");
-        if let Some(addr) = ADDRESS.get() {
-            Runtime::new()?.block_on(async {
-                let listener = TcpListener::bind(addr).await.unwrap();
-                format_message(&("deamon-websocket on ".to_owned() + addr));
-                while let Ok((stream, socket_addr)) = listener.accept().await {
-                    tokio::spawn(handle_deamon(stream));
-                    let time = time::OffsetDateTime::now_utc();
-                    println!("data sended at {time} to {}",socket_addr.to_string().green());
-                }
-            });
-        } 
-    }
+    // #[cfg(feature = "deamon")]
+    // {
+    //     dbg!("deamon");
+    //     if let Some(addr) = ADDRESS.get() {
+    //         Runtime::new()?.block_on(async {
+    //             let listener = TcpListener::bind(addr).await.unwrap();
+    //             format_message(&("deamon-websocket on ".to_owned() + addr));
+    //             while let Ok((stream, socket_addr)) = listener.accept().await {
+    //                 tokio::spawn(handle_deamon(stream));
+    //                 let time = time::OffsetDateTime::now_utc();
+    //                 println!("data sended at {time} to {}",socket_addr.to_string().green());
+    //             }
+    //         });
+    //     } 
+    // }
     Ok(())
 }

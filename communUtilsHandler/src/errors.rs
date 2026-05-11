@@ -14,13 +14,13 @@ pub enum GlobalError {
     WasiError,
     SingleInstanceBreach,
     StringEnumInit(String),
-    IoError(String)
+    IoError(String),
+    InitError(String)
 }
 
 impl fmt::Display for GlobalError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let description = match self {
-            GlobalError::ParseError(msg) => msg,
             GlobalError::UninitializedVariable =>  "'tries to be waited for before being initialized.",
             GlobalError::ResetOnceLock => "Can't reset a oncelock static.",
             GlobalError::TryFromIntError => "value can't be transform.",
@@ -30,7 +30,8 @@ impl fmt::Display for GlobalError {
             GlobalError::WasiError => "Something went wrong during the runing of a wasi component.",
             GlobalError::SingleInstanceBreach => "instance cannot be duplicated.",
             GlobalError::StringEnumInit(variante) => &("variante enum: ".to_owned() + variante + "doesn't exist."),
-            GlobalError::IoError(string) => string
+            GlobalError::ParseError(string) | GlobalError::IoError(string) | GlobalError::InitError(string) => string,
+            
         };
         f.write_str(&description.red().bold().to_string())
     }
