@@ -128,6 +128,8 @@ pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
 #[cfg(feature = "deamon")]
 pub async fn handle_deamon(stream:TcpStream)->Result<(),TungError>
 {
+    use commun_utils_handler::errors::GlobalError;
+
     let ws_stream = accept_async(stream).await?;
     let (_,mut read) = ws_stream.split(); 
     if let Some(Ok(message)) = read.next().await {
@@ -151,12 +153,16 @@ pub async fn handle_deamon(stream:TcpStream)->Result<(),TungError>
             // let mut overall_hash_compression:String = String::new();
             while let Some(Ok(message)) = read.next().await  {
                 use std::io::Write;
+
+                use commun_utils_handler::fs_strategies::{LARGE_FILE, storage_gestion};
                 let mut temp_sub = path_file.clone();
                 let binary:Vec<u8> = message.into_data();
                 let hash_stringify = blake3::hash(&binary).to_string();
+
                 temp_sub.extend(&PathBuf::from(&hash_stringify));
                 let mut file:File = fs::File::create_new(temp_sub)?;
                 let compress = &bulk::compress(&binary, 3)?;
+                storage_gestion(path, buffers)
                 // overall_hash_compression += &hash_stringify;
                 file.write(&compress)?;
             }
