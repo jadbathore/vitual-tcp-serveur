@@ -3,7 +3,7 @@ pub mod fs_strategies;
 pub mod collection;
 
 use colored::Colorize;
-use std::{collections::HashSet, error::Error, sync::Arc};
+use std::{collections::HashSet, error::Error, process::Command, str::FromStr, sync::Arc};
 
 use regex::bytes::{Regex, RegexSet};
 
@@ -16,8 +16,9 @@ pub trait FileScanner {
     fn scanner<'scanner>()->ScanBytesSubject<'scanner>;
 }
 
+
 pub trait IterableStringifyEnum where 
-    Self: Sized 
+    Self: Sized + FromStr
 {
     fn iter_enum()-> Vec<Self>;
 }

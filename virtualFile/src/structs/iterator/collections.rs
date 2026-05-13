@@ -5,12 +5,12 @@ use futures::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
 // use std::{ num::TryFromIntError,sync::OnceLock };
 
-use crate::general::Asset;
+use crate::general::{Asset, WriteSender};
 use crate::{ 
         CACHES, PAYLOADS, ASSETS,
         structs::{
             builder::wasi::build_wasi_call, 
-            iterator::utils::{ IndexSliceHelper, PayloadCloser, PayloadSender, SearchableItem, StaticCollection, TcpItem, WriteSender}, 
+            iterator::utils::{ IndexSliceHelper, PayloadCloser, PayloadSender, SearchableItem, StaticCollection, TcpItem}, 
             payloads::{json_struct::JsonInfo, payload::DataFile}
         }
     };

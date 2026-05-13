@@ -3,7 +3,7 @@ use futures::{SinkExt, stream::{SplitSink, SplitStream}};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
 
-use crate::structs::payloads::payload::DataFile;
+use crate::{general::WriteSender, structs::payloads::payload::DataFile};
 
 
 pub trait SearchableItem {}
@@ -28,8 +28,6 @@ impl IndexSliceHelper
     }
 }
 
-pub type WriteSender = SplitSink<WebSocketStream<TcpStream>,Message>;
-pub type ReadSender = SplitStream<WebSocketStream<TcpStream>>;
 
 
 pub trait PayloadSender:Iterator<Item:SearchableItem>

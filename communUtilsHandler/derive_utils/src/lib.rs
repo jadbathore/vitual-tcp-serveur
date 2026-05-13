@@ -38,12 +38,21 @@ fn impl_iterable_enum_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenS
         let name = &ast.ident;
         let generation = quote! {
             use std::str::FromStr;
+            use commun_utils_handler::IterableStringifyEnum;
 
             impl IterableStringifyEnum for #name
             {
                 fn iter_enum()-> Vec<#name>
                 {
                     vec![#(#name::#variants,)*]
+                }
+            }
+
+            impl From<#name> for String {
+            fn from(value: #name) -> Self {
+                    match value {
+                        #(#name::#variants => String::from(stringify!(#variants)),)* 
+                    }
                 }
             }
 

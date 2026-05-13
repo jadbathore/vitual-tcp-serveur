@@ -140,33 +140,32 @@ fn main()->Result<(),Box<dyn Error>>
     #[cfg(feature = "client")]
     {
         set_payload_variable(VFS_DIR.get())?;
-        // if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
-        //     Runtime::new()?.block_on(async {
-        //         let listener = TcpListener::bind(addr).await.unwrap();
-        //         format_message(&("client-websocket on ".to_owned() + addr));
-        //         while let Ok((stream, socket_addr)) = listener.accept().await {
-        //             tokio::spawn(handle_client(stream,assets));
-        //             let time = time::OffsetDateTime::now_utc();
-        //             println!("data sended at {time} to {}",socket_addr.to_string().green());
-        //         }
-        //     });
-        // }  
+        if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
+            Runtime::new()?.block_on(async {
+                let listener = TcpListener::bind(addr).await.unwrap();
+                format_message(&("client-websocket on ".to_owned() + addr));
+                while let Ok((stream, socket_addr)) = listener.accept().await {
+                    tokio::spawn(handle_client(stream,assets));
+                    let time = time::OffsetDateTime::now_utc();
+                    println!("data sended at {time} to {}",socket_addr.to_string().green());
+                }
+            });
+        }  
     }
 
-    // #[cfg(feature = "deamon")]
-    // {
-    //     dbg!("deamon");
-    //     if let Some(addr) = ADDRESS.get() {
-    //         Runtime::new()?.block_on(async {
-    //             let listener = TcpListener::bind(addr).await.unwrap();
-    //             format_message(&("deamon-websocket on ".to_owned() + addr));
-    //             while let Ok((stream, socket_addr)) = listener.accept().await {
-    //                 tokio::spawn(handle_deamon(stream));
-    //                 let time = time::OffsetDateTime::now_utc();
-    //                 println!("data sended at {time} to {}",socket_addr.to_string().green());
-    //             }
-    //         });
-    //     } 
-    // }
+    #[cfg(feature = "deamon")]
+    {
+        if let Some(addr) = ADDRESS.get() {
+            Runtime::new()?.block_on(async {
+                let listener = TcpListener::bind(addr).await.unwrap();
+                format_message(&("deamon-websocket on ".to_owned() + addr));
+                while let Ok((stream, socket_addr)) = listener.accept().await {
+                    tokio::spawn(handle_deamon(stream));
+                    let time = time::OffsetDateTime::now_utc();
+                    println!("data sended at {time} to {}",socket_addr.to_string().green());
+                }
+            });
+        } 
+    }
     Ok(())
 }

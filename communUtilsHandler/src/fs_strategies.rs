@@ -189,7 +189,6 @@ pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Err
 
 
 
-
 #[derive(Debug,Clone)]
 pub struct FileReader
 {
@@ -293,21 +292,12 @@ impl<'file> From<&'file NormalFile<'file>> for PathBuf {
     }
 }
 
-// impl<'file> StorageStrategies<'file> for NormalFile<'file> {
-
-//     fn store_in(&self,file:fsbuffers:&mut Vec<u8>)->Result<(),Box<dyn Error>> {
-        
-//         for buffer in buffers.iter() {
-//             file.write(buffer)?;
-//         }
-//         Ok(())
-//     }
-// }
+impl<'file> StorageStrategies<'file> for NormalFile<'file> {}
 
 //-------------------------------------------------------------------------
 
 struct HashContainerFile<'file> {
-    parent: HashDirectoryRead<'file>
+    parent: Cow<'file,Path>
 }
 
 impl<'file> TryFrom<&'file Path> for HashContainerFile<'file> {
@@ -315,7 +305,7 @@ impl<'file> TryFrom<&'file Path> for HashContainerFile<'file> {
 
     fn try_from(value: &'file Path) -> Result<Self,Self::Error> {
         Ok( 
-            HashContainerFile { parent: HashDirectoryRead::try_from(value)? }
+            HashContainerFile { parent: Cow::Borrowed(value) }
         )
     }
 }
@@ -328,7 +318,7 @@ impl<'file> From<&'file HashContainerFile<'file>> for PathBuf {
 
 impl<'file> AsRef<Path> for HashContainerFile< 'file> {
     fn as_ref(&self) -> &Path {
-        self.parent.inner
+        &self.parent
     }
 }
 
@@ -361,7 +351,7 @@ pub fn storage_gestion(path:&Path,buffers:&mut Vec<u8>)->Result<(),Box<dyn Error
         x if x <= LARGE_FILE => Box::new(NormalFile::from(path)),
         _ => Box::new(HashContainerFile::try_from(path)?)
     };
-    storage_type.store_in(buffers)?;
+    storage_type.init_data_storage(buffers)?;
     Ok(()) 
 }
 
