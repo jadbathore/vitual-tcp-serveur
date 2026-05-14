@@ -8,6 +8,7 @@ pub const MEDIUM_FILE: u64 = 64 * 1024;
 pub const LARGE_FILE: u64 = 10 * 1024 * 1024;
 pub const HUGE_FILE: u64 = 100 * 1024 * 1024;
 pub const GIGA_FILE: u64 = 1 * 1024 * 1024 * 1024; 
+
 pub const CHUNK_SMALL_SLICE:usize = 128 * 1024;
 pub const CHUNK_MEDIUM_SLICE:usize =  CHUNK_SMALL_SLICE * 2;
 
@@ -135,9 +136,6 @@ pub enum ReadStrategy {
     // GigaLarge
 }
 
-
-
-
 impl<'buffer> TryFrom<&'buffer Path> for ReadStrategy {
     type Error = io::Error;
     fn try_from(entry: &'buffer Path) -> Result<Self,Self::Error> {
@@ -251,22 +249,7 @@ impl FileReader
 
 pub trait StorageStrategies<'path> where Self:AsRef<Path>
 {
-    fn init_data_storage(&self,buffers:&mut Vec<u8>)->Result<(),Box<dyn Error>> 
-    {
-        let mut file = match self.as_ref().is_dir() {
-            true => {
-                fs::create_dir(self)?;
-                let mut data_qcow = self.as_ref().to_path_buf();
-                data_qcow.push("index.qcow");
-                fs::File::create_new(data_qcow)?
-            },
-            false => {
-                fs::File::create_new(self)?
-            }
-        };
-        file.write(buffers)?;
-        Ok(())
-    }
+    fn init_data_storage(&self)->Result<File,Box<dyn Error>>;
 }
 
 //-------------------------------------------------------------------------
@@ -292,7 +275,11 @@ impl<'file> From<&'file NormalFile<'file>> for PathBuf {
     }
 }
 
-impl<'file> StorageStrategies<'file> for NormalFile<'file> {}
+impl<'file> StorageStrategies<'file> for NormalFile<'file> {
+    fn init_data_storage(&self)->Result<File,Box<dyn Error>> {
+        Ok(fs::File::create_new(self)?)
+    }
+}
 
 //-------------------------------------------------------------------------
 
@@ -322,7 +309,14 @@ impl<'file> AsRef<Path> for HashContainerFile< 'file> {
     }
 }
 
-impl<'file> StorageStrategies<'file> for HashContainerFile<'file> {}
+impl<'file> StorageStrategies<'file> for HashContainerFile<'file> {
+    fn init_data_storage(&self)->Result<File,Box<dyn Error>> {
+        fs::create_dir(self)?;
+        let mut data_qcow = self.as_ref().to_path_buf();
+        data_qcow.push("index.qcow");
+        Ok(fs::File::create_new(data_qcow)?)
+    }
+}
 
 //-------------------------------------------------------------------------
 
@@ -344,15 +338,32 @@ impl<'file> StorageStrategies<'file> for HashContainerFile<'file> {}
 //     }
 // }
 
+// struct NavigatorStorage<'a> { 
+//     strategy:Box<&'a dyn StorageStrategies<'a>>,
+//     file:Option<File>
+// }
 
-pub fn storage_gestion(path:&Path,buffers:&mut Vec<u8>)->Result<(),Box<dyn Error>>
+
+
+// impl<'a> NavigatorStorage<'a> {
+
+//     pub fn new(path:&'a Path,predicate:usize)->Result<Self,Box<dyn Error>>
+//     {
+//         let storage_type:Box<&dyn StorageStrategies<'a>> = match predicate {
+//             x if x <= LARGE_FILE as usize => Box::new(&NormalFile::from(path)),
+//             _ => Box::new(&HashContainerFile::try_from(path)?)
+//         };
+//         Ok(NavigatorStorage { strategy: storage_type, file: None })
+//     }
+// }
+
+pub fn storage_file<'a>(path:&Path,predicate:usize)->Result<File,Box<dyn Error>>
 {
-    let storage_type:Box<dyn StorageStrategies> = match path.metadata()?.len() {
-        x if x <= LARGE_FILE => Box::new(NormalFile::from(path)),
+    let storage_type:Box<dyn StorageStrategies> = match predicate {
+        x if x <= LARGE_FILE as usize => Box::new(NormalFile::from(path)),
         _ => Box::new(HashContainerFile::try_from(path)?)
     };
-    storage_type.init_data_storage(buffers)?;
-    Ok(()) 
+    Ok(storage_type.init_data_storage()?) 
 }
 
 

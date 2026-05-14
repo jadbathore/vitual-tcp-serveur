@@ -10,3 +10,4 @@ proc-macro = true
 
 quote = "1.0.44"
 syn = "2.0.117"
+commun_utils_handler={path = "../../communUtilsHandler/"}

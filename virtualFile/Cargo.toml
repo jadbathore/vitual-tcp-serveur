@@ -16,8 +16,9 @@
     time = "0.3.47"
     colored = "3.1.1"
     regex = "1.12.3"
-blake3 = { version = "1.8.5", optional = true }
-zstd = "0.13.3"
+    blake3 = { version = "1.8.5", optional = true }
+    zstd = "0.13.3"
+
 [features]
     client = []
     deamon = ["blake3"]

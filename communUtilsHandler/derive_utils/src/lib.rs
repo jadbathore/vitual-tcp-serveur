@@ -5,6 +5,11 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{self, Data, Ident, LitStr};
 
+
+// mod __private {
+//     pub use commun_utils_handler;
+// }
+
 // macro_rules! regex_patterns {
 //     ($($pat:expr),* $(,)?) => {
 //         const COUNT: usize = <[()]>::len(&[$(regex_patterns!(@sub $pat)),*]);
@@ -37,10 +42,13 @@ fn impl_iterable_enum_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenS
         let variants:Vec<&Ident> = data_enum.variants.iter().map(|i| &i.ident).collect();
         let name = &ast.ident;
         let generation = quote! {
-            use std::str::FromStr;
-            use commun_utils_handler::IterableStringifyEnum;
+            // use std::str::FromStr;
+            // use commun_utils_handler::IterableStringifyEnum;
+            // mod __macro_imports {
+            //     pub use commun_utils_handler::IterableStringifyEnum;
+            // }
 
-            impl IterableStringifyEnum for #name
+            impl commun_utils_handler::IterableStringifyEnum for #name
             {
                 fn iter_enum()-> Vec<#name>
                 {
@@ -56,7 +64,7 @@ fn impl_iterable_enum_macro(ast: &syn::DeriveInput) -> Result<TokenStream,TokenS
                 }
             }
 
-            impl FromStr for #name {
+            impl std::str::FromStr for #name {
                 type Err = String;
                 fn from_str(value: &str) -> Result<Self, Self::Err> {
                     match value {

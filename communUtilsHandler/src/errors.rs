@@ -1,4 +1,4 @@
-use std::{error::Error, ffi::CStr, fmt::{self, Debug}};
+use std::{error::Error, fmt::{self, Debug}};
 
 use colored::Colorize;
 

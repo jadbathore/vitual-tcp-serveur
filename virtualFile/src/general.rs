@@ -5,7 +5,9 @@ use serde::de::Error;
 use tokio::net::TcpStream;
 
 use derive_utils::IterableStringifyEnum;
-use std::path::Path;
+use std::str::FromStr;
+use commun_utils_handler::IterableStringifyEnum;
+// use std::path::Path;
 use tokio_tungstenite::{WebSocketStream, accept_async, accept_hdr_async, tungstenite::{ 
         Message, handshake::{client::Request, server::ErrorResponse}, http::{HeaderValue, Response}
     }
@@ -39,12 +41,19 @@ pub enum Protocols {
 
 
 #[cfg(feature = "deamon")]
-#[derive(IterableStringifyEnum)]
+#[derive(IterableStringifyEnum,Debug)]
 pub enum CommandProtocols {
     AddFile,
     AddExecutable,
 }
 
+
+#[cfg(feature = "deamon")]
+#[derive(IterableStringifyEnum)]
+pub enum Flag {
+    File,
+    Directory
+}
 
 #[cfg(feature = "client")]
 pub enum Asset {
@@ -66,7 +75,6 @@ pub struct NavigatorProtocols<P:IterableStringifyEnum>
 {
     protocols:OnceLock<P>
 }
-
 // #[cfg(feature = "client")]
 impl<P:IterableStringifyEnum> NavigatorProtocols<P> {
 
@@ -100,13 +108,64 @@ impl<P:IterableStringifyEnum> NavigatorProtocols<P> {
 #[cfg(feature = "deamon")]
 impl NavigatorProtocols<CommandProtocols>
 {
-    pub async fn resolve_protocol(&self,write:&mut WriteSender,read:&mut ReadSender)
+    pub async fn resolve_protocol(&self,write:&mut WriteSender,read:&mut ReadSender)->Result<(),TungError>
     {
+        dbg!(self.protocols.get());
         if let Some(protocol) = self.protocols.get() {
             match protocol {
                 CommandProtocols::AddFile => {
-                    if let (Some(Ok(program)),Some(Ok(data))) = (read.next().await,read.next().await) {
+                    if let (Some(Ok(path_name)),Some(Ok(flag)),Some(Ok(size))) = (read.next().await,read.next().await,read.next().await) {
+                        use std::str::from_utf8;
 
+                        let mut sub_new_file:String = path_name.into_text()?;
+                        let regexes = [r"\.+\/",r"\/"," "];
+                        let regex_set = RegexSet::new(regexes).map_err(|_| TungError::Utf8)?;
+                        for index in regex_set.matches(&sub_new_file).iter() {
+                            let replacement = match index {
+                                0 => "",
+                                1 => "-",
+                                _ => ""
+                            };
+                            let regex = Regex::new(regexes[index]).unwrap();
+                            sub_new_file = regex.replace_all(&sub_new_file, replacement).to_string();
+                        }
+                        
+                        let predicate_size = usize::from_str(&size.into_text()?).map_err(|_|TungError::Utf8)?;
+
+                        if let Some(vfs ) = VFS_DIR.get() {
+                            use commun_utils_handler::fs_strategies::storage_file;
+                            use tokio_tungstenite::tungstenite::error::UrlError;
+                            use std::io::Write;
+
+                            let mut path_file:PathBuf = PathBuf::from(vfs);
+                            path_file.extend(&PathBuf::from(sub_new_file));
+                            
+                            let mut file = storage_file(&path_file,predicate_size).map_err(|_|TungError::Url(UrlError::UnsupportedUrlScheme))?;
+                            while let Some(Ok(data)) = read.next().await {
+                                file.write(data.into_data().as_slice())?;
+                            }
+                            // match Flag::from_str(flag.into_text()?.as_str()).map_err(|_| TungError::Utf8)? {
+                            //     Flag::Directory => {
+                            //         path_file.extend(&PathBuf::from(sub_new_file + "/"))
+                            //     },
+                            //     Flag::File => {
+                            //         path_file.extend(&PathBuf::from(sub_new_file))
+                            //     }, 
+                            // };
+                        dbg!(path_file);
+                            // let buffer = Vec::new();
+                            // while let Some(Ok(chunck)) = read.next().await {
+                            //     let data_chunck = chunck.into_data();
+                            // }
+                            // storage_gestion(&path_file, buffers);
+                        } 
+                        // let a = path_name.into_text()?.as_str();
+                        
+
+                        // while let Some(Ok(chunck)) = read.next().await {
+                        //     let data_chunck = chunck.into_data();
+                        //     chunck_count += 0;
+                        // }
                     }
 
                     // storage_gestion(path, buffers)
@@ -114,8 +173,9 @@ impl NavigatorProtocols<CommandProtocols>
                 CommandProtocols::AddExecutable => {
                     println!("add exec")
                 }
-            }
+            };
         }
+        Ok(())
     }
 }
 
@@ -168,9 +228,10 @@ pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
 pub async fn handle_deamon(stream:TcpStream)->Result<(),TungError>
 {
     let navigator:NavigatorProtocols<CommandProtocols> = NavigatorProtocols::new();
-    let ws_stream = accept_hdr_async(stream,navigator.hands_shake_callback()).await.unwrap();
+    let ws_stream = accept_hdr_async(stream,navigator.hands_shake_callback()).await?;
     let (mut write,mut read) = ws_stream.split(); 
-    navigator.resolve_protocol(&mut write,&mut read).await;
+    navigator.resolve_protocol(&mut write,&mut read).await?;
+    // dbg!("a");
     Ok(())
 }
     // // let ws_stream = accept_async(stream).await?;
