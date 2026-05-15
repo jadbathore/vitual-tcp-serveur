@@ -1,11 +1,6 @@
 
-#[cfg(feature = "client")]
-use std::fs;
-use std::{env, error::Error, path::PathBuf, sync::{Arc, OnceLock}};
 
-#[cfg(feature = "client")]
-use commun_utils_handler::fs_strategies::get_entries;
-
+use std::{env, error::Error, path::PathBuf, sync::OnceLock};
 
 use lazy_static::lazy_static;
 
@@ -19,10 +14,18 @@ use tokio::{net::TcpListener, runtime::Runtime};
 
 
 
+
 #[cfg(feature = "client")]
-use crate::{
-    general::handle_client,
-    structs::iterator::collections::{CacheCollection,PayloadCollection,StaticAssetsCollection}
+use {
+    crate::{
+        general::handle_client,
+        structs::{
+            iterator::collections::{CacheCollection,PayloadCollection,StaticAssetsCollection},
+            payloads::payload::DataFile,
+            states::PredicatorCache
+        },
+    },
+    std::sync::Arc
 };
 
 #[cfg(feature = "deamon")]
@@ -31,13 +34,14 @@ use crate::general::handle_deamon;
 use crate::structs::builder::wasi::build_wasi_call;
 
 
+#[cfg(feature = "client")]
 use commun_utils_handler::fs_strategies::recursive_file_read;
 
-use crate::{
-    structs::{
-        payloads::payload::DataFile, states::PredicatorCache
-    }
-};
+// use crate::{
+//     structs::{
+        
+//     }
+// };
 
 
 
@@ -66,6 +70,7 @@ lazy_static!(
 #[cfg(feature = "client")]
 static ASSETS:OnceLock<Arc<StaticAssetsCollection>> = OnceLock::new();
 
+#[cfg(feature = "client")]
 static CACHE_CAP:u64 = 1 * 1024 * 1024 * 1024; 
 
 
@@ -123,6 +128,12 @@ fn format_message(str:&str)
     println!("\t{}",blankfiller);
 
 }
+
+// fn a(){
+
+//     tokio::fs::File::open(path)
+//     // tokio::fs::File::create_new("");
+// }
 
 
 fn main()->Result<(),Box<dyn Error>> 

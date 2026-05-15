@@ -3,7 +3,7 @@ pub mod fs_strategies;
 pub mod collection;
 
 use colored::Colorize;
-use std::{collections::HashSet, error::Error, process::Command, str::FromStr, sync::Arc};
+use std::{collections::HashSet, error::Error,str::FromStr, sync::Arc};
 
 use regex::bytes::{Regex, RegexSet};
 

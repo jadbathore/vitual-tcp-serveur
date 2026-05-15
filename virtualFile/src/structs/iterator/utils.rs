@@ -1,7 +1,6 @@
 use std::sync::Arc;
-use futures::{SinkExt, stream::{SplitSink, SplitStream}};
-use tokio::net::TcpStream;
-use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
+use futures::SinkExt;
+use tokio_tungstenite::tungstenite::Message;
 
 use crate::{general::WriteSender, structs::payloads::payload::DataFile};
 

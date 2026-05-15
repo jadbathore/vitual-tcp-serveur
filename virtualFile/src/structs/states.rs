@@ -1,11 +1,15 @@
-use std::io;
 
-use commun_utils_handler::fs_strategies::ReadStrategy;
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxView, WasiView};
 
+
+#[cfg(feature = "client")]
 use crate::{CACHE_CAP,structs::payloads::payload::DataFile};
 
+#[cfg(feature = "client")]
+use std::io;
 
+#[cfg(feature = "client")]
+use commun_utils_handler::fs_strategies::ReadStrategy;
 
 pub struct WasiState {
     ctx:WasiCtx,
@@ -31,15 +35,16 @@ impl WasiView for WasiState {
 }
 
 
-
+#[cfg(feature = "client")]
 #[derive(Default)]
 pub struct PredicatorCache {
     cache_use:u64,
 
 }
 
-impl PredicatorCache {
 
+#[cfg(feature = "client")]
+impl PredicatorCache {
     pub fn predicate_cache_use(&mut self,type_data:&DataFile)->Result<bool,io::Error>
     {   
         match type_data.get_strategy() {

@@ -1,31 +1,56 @@
-use std::{ffi::{OsStr, OsString}, fs, path::PathBuf, sync::{Arc,OnceLock}, vec};
-use futures::{StreamExt, stream::{SplitSink, SplitStream}};
-use regex::Regex;
-use serde::de::Error;
+
+// #[cfg(feature = "deamon")]
+// use std::path::PathBuf;
+// #[cfg(feature = "client")]
+// use {
+//     std::sync::Arc,
+//     futures::stream::SplitSink,
+// };
+
+use std::{sync::OnceLock,vec};
+
+use futures::{StreamExt, stream::SplitStream};
+// #[cfg(feature = "deamon")]
+// use regex::Regex;
+
+#[cfg(feature = "deamon")]
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
 use derive_utils::IterableStringifyEnum;
-use std::str::FromStr;
+
 use commun_utils_handler::IterableStringifyEnum;
 // use std::path::Path;
-use tokio_tungstenite::{WebSocketStream, accept_async, accept_hdr_async, tungstenite::{ 
-        Message, handshake::{client::Request, server::ErrorResponse}, http::{HeaderValue, Response}
+
+use tokio_tungstenite::{WebSocketStream, accept_hdr_async, tungstenite::{ 
+        handshake::{client::Request, server::ErrorResponse}, http::{HeaderValue, Response}
     }
 };
-use tokio_tungstenite::tungstenite::Error as TungError;
+
+#[cfg(feature = "deamon")]
+use crate::structs::storage::storage_file;
 
 #[cfg(feature = "client")]
-use crate::structs::iterator::{
-    collections::StaticAssetsCollection,
+use {
+    crate::structs::iterator::{
+        collections::StaticAssetsCollection,
+    },
+    {
+        tokio_tungstenite::tungstenite::Message,
+        std::sync::Arc,
+        futures::stream::SplitSink,
+    }
 };
 
-use zstd::bulk;
+#[cfg(feature = "deamon")]
+use {
+    crate::VFS_DIR,
+    std::{path::PathBuf,str::FromStr,io::Write},
+    regex::{Regex,RegexSet},
+    tokio_tungstenite::tungstenite::{Error as TungError,error::UrlError},
+    // zstd::bulk,
+};
 
-use regex::RegexSet;
-
-use crate::VFS_DIR;
-
-use std::fs::File;
 
 //---------------------------------------------------------------------------
 //----------------------------  general enum  -------------------------------
@@ -61,9 +86,9 @@ pub enum Asset {
     Payload(usize)
 }
 
-// #[cfg(feature = "deamon")]
-// pub enum 
+#[cfg(feature = "client")]
 pub type WriteSender = SplitSink<WebSocketStream<TcpStream>,Message>;
+
 pub type ReadSender = SplitStream<WebSocketStream<TcpStream>>;
 
 //---------------------------------------------------------------------------
@@ -86,6 +111,7 @@ impl<P:IterableStringifyEnum> NavigatorProtocols<P> {
     pub fn hands_shake_callback(&self)-> impl FnOnce(&Request,Response<()>)->Result<Response<()>,ErrorResponse> 
     {
         move |req:&Request,mut res:Response<()>| {
+
                 if let Some(p) = req.headers().get("sec-websocket-protocol") {
                     let inner = p.to_str().map_err(|err|{
                         ErrorResponse::new(Some(err.to_string()))
@@ -108,14 +134,12 @@ impl<P:IterableStringifyEnum> NavigatorProtocols<P> {
 #[cfg(feature = "deamon")]
 impl NavigatorProtocols<CommandProtocols>
 {
-    pub async fn resolve_protocol(&self,write:&mut WriteSender,read:&mut ReadSender)->Result<(),TungError>
+    pub async fn resolve_protocol(&self,read:&mut ReadSender)->Result<(),TungError>
     {
-        dbg!(self.protocols.get());
         if let Some(protocol) = self.protocols.get() {
             match protocol {
                 CommandProtocols::AddFile => {
-                    if let (Some(Ok(path_name)),Some(Ok(flag)),Some(Ok(size))) = (read.next().await,read.next().await,read.next().await) {
-                        use std::str::from_utf8;
+                    if let (Some(Ok(path_name)),Some(Ok(size))) = (read.next().await,read.next().await) {
 
                         let mut sub_new_file:String = path_name.into_text()?;
                         let regexes = [r"\.+\/",r"\/"," "];
@@ -133,16 +157,13 @@ impl NavigatorProtocols<CommandProtocols>
                         let predicate_size = usize::from_str(&size.into_text()?).map_err(|_|TungError::Utf8)?;
 
                         if let Some(vfs ) = VFS_DIR.get() {
-                            use commun_utils_handler::fs_strategies::storage_file;
-                            use tokio_tungstenite::tungstenite::error::UrlError;
-                            use std::io::Write;
-
+                            
                             let mut path_file:PathBuf = PathBuf::from(vfs);
                             path_file.extend(&PathBuf::from(sub_new_file));
                             
-                            let mut file = storage_file(&path_file,predicate_size).map_err(|_|TungError::Url(UrlError::UnsupportedUrlScheme))?;
+                            let mut file =  storage_file(&path_file,predicate_size).map_err(|_|TungError::Url(UrlError::UnsupportedUrlScheme))?;
                             while let Some(Ok(data)) = read.next().await {
-                                file.write(data.into_data().as_slice())?;
+                                file.write(data.into_data().as_slice()).await;
                             }
                             // match Flag::from_str(flag.into_text()?.as_str()).map_err(|_| TungError::Utf8)? {
                             //     Flag::Directory => {
@@ -220,6 +241,7 @@ pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
         let (mut write,mut read) = ws.split(); 
         stream_navigator.resolve_protocol(assets,&mut write,&mut read).await;
     } else {
+
         todo!()
     } 
 }
@@ -229,82 +251,8 @@ pub async fn handle_deamon(stream:TcpStream)->Result<(),TungError>
 {
     let navigator:NavigatorProtocols<CommandProtocols> = NavigatorProtocols::new();
     let ws_stream = accept_hdr_async(stream,navigator.hands_shake_callback()).await?;
-    let (mut write,mut read) = ws_stream.split(); 
-    navigator.resolve_protocol(&mut write,&mut read).await?;
+    let (_,mut read) = ws_stream.split(); 
+    navigator.resolve_protocol(&mut read).await?;
     // dbg!("a");
     Ok(())
 }
-    // // let ws_stream = accept_async(stream).await?;
-    // if let (Some(Ok(message)),Some(Ok(data))) = (read.next().await,read.next().await) {
-    //     let mut sub_new_file:String = message.into_text()?;
-    //     let regexes = [r"\.+\/",r"\/"," "];
-    //     let regex_set = RegexSet::new(regexes).map_err(|_| TungError::Utf8)?;
-    //     for index in regex_set.matches(&sub_new_file).iter() {
-    //         let replacement = match index {
-    //             0 => "",
-    //             1 => "-",
-    //             _ => ""
-    //         };
-    //         let regex = Regex::new(regexes[index]).unwrap();
-    //         sub_new_file = regex.replace_all(&sub_new_file, replacement).to_string();
-    //     }
-
-    //     if let Some(vfs_dir) = VFS_DIR.get() {
-    //         use commun_utils_handler::fs_strategies::storage_gestion;
-    //         let mut vec = Vec::new();
-    //         storage_gestion(Path::new(&sub_new_file),&mut vec).map_err(|_|TungError::Utf8)?;
-
-    //         // let mut path_file:PathBuf = PathBuf::from(vfs_dir);
-    //         // path_file.extend(&PathBuf::from(sub_new_file));
-    //         // fs::create_dir(&path_file)?;
-    //         // // let mut overall_hash_compression:String = String::new();
-    //         // while let Some(Ok(message)) = read.next().await  {
-    //         //     use std::io::Write;
-
-    //         //     use commun_utils_handler::fs_strategies::{LARGE_FILE, storage_gestion};
-    //         //     let mut temp_sub = path_file.clone();
-    //         //     let binary:Vec<u8> = message.into_data();
-    //         //     let hash_stringify = blake3::hash(&binary).to_string();
-
-    //         //     temp_sub.extend(&PathBuf::from(&hash_stringify));
-    //         //     // let mut file:File = fs::File::create_new(temp_sub)?;
-    //         //     let compress = &bulk::compress(&binary, 3)?;
-    //         //     storage_gestion(, buffers);
-    //         //     // overall_hash_compression += &hash_stringify;
-    //         //     file.write(&compress)?;
-    //         // }
-    //     // dbg!(path_file);
-    //     }
-
-        // if let Some(vfs_dir) = VFS_DIR.get() {
-        //     while let Some(Ok(message)) = read.next().await  {
-        //         let mut path_file:PathBuf = PathBuf::from(vfs_dir);
-        //         let binary:Vec<u8> = message.into_data();
-        //         dbg!(&binary);
-        //         // let mut file:File = fs::File::create_new(binary)?;
-        //         // let mut hasher = DefaultHasher::new();
-        //         // hasher.write(&binary);
-        //         // Hash::hash_slice(&[10,10,310,10,310,10,310,10,310,10,3], &mut hasher);
-        //         // println!("{}",hasher.finish());
-        //         // file.write(&binary)?;
-
-        //         // dbg!(message);
-        //         // file.write(buf);
-        //     }
-        //     // dbg!(path_file);
-        // }
-        // let file = fs::File::create_new(path)
-        // dbg!();
-        // let file = message.into_text().unwrap_or(String::from(""));
-
-        // if let Ok(file_path) = 
-        // let file = File::create(Path::new(&file))?;
-        // while let Some(Ok(message)) = read.next().await  {
-        //     dbg!(message);
-        // }
-//     }else{ 
-//         dbg!("messa");
-//     }
-    
-//     Ok(())
-// } 

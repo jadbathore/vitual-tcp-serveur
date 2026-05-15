@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, error::Error, fs::{self, DirEntry, File, ReadDir}, io::{self, BufReader, Read, Write}, ops::Deref, path::{Path, PathBuf}, sync::Arc
+    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::{Path}, sync::Arc
 };
 
 use crate::errors::GlobalError;
@@ -16,13 +16,34 @@ pub const CHUNK_MEDIUM_SLICE:usize =  CHUNK_SMALL_SLICE * 2;
 //----------------------------read-Strategies------------------------------
 //-------------------------------------------------------------------------
 
-pub trait ReadStrategies
+pub trait TcpReaderStrategy where 
+    Self:AsRef<Path>
 {
-    fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box<dyn Error>>;
+}
+
+pub trait ReadSyncStrategies<'callback,'buffers> 
+    where 
+        Self:AsRef<Path>,
+        'buffers:'callback
+{
+    fn use_across_file(&self,callback:Box<dyn FnMut(Arc<[u8]>) + 'callback>)->Result<(),Box<dyn Error>>;
+    fn flush(&self,buffers:&'buffers mut Vec<Arc<[u8]>>)->Result<(),Box<dyn Error>>
+    {
+        let callback= |chunck| {
+            buffers.push(chunck);
+        };
+        self.use_across_file(Box::new(callback))
+    }
 }
 
 struct SmaleRead<'cow> {
     inner:Cow<'cow,Path>
+}
+
+impl<'cow> AsRef<Path> for SmaleRead<'cow> {
+    fn as_ref(&self) -> &Path {
+        &self.inner
+    }
 }
 
 impl<'cow> SmaleRead<'cow> {
@@ -32,13 +53,10 @@ impl<'cow> SmaleRead<'cow> {
     }
 }
 
-
-impl<'cow> ReadStrategies for SmaleRead<'cow> {
-
-    fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box<dyn Error>>
-    {
+impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for SmaleRead<'cow> where 'buffers:'cow {
+    fn use_across_file(&self,mut callback:Box<dyn FnMut(Arc<[u8]>) + 'cow>)->Result<(),Box<dyn Error>> {
         let data = fs::read(&self.inner)?;
-        buffers.push(Arc::from(data));
+        callback(Arc::from(data));
         Ok(())
     }
 }
@@ -46,6 +64,12 @@ impl<'cow> ReadStrategies for SmaleRead<'cow> {
 struct MediumRead<'cow> {
     inner:Cow<'cow,Path>,
     capacity:usize
+}
+
+impl<'cow> AsRef<Path> for MediumRead<'cow> {
+    fn as_ref(&self) -> &Path {
+        &self.inner
+    }
 }
 
 impl<'cow> MediumRead<'cow> {
@@ -58,14 +82,13 @@ impl<'cow> MediumRead<'cow> {
     }
 }
 
-impl<'cow> ReadStrategies for MediumRead<'cow> {
-    
-    fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box< dyn Error>> {
+impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for MediumRead<'cow> where 'buffers:'cow {
+    fn use_across_file(&self,mut callback:Box<dyn FnMut(Arc<[u8]>) + 'cow>)->Result<(),Box<dyn Error>> {
         let data = fs::File::open(&self.inner)?;
         let mut sub_buf:Vec<u8> = Vec::with_capacity(self.capacity); 
         let mut reader = BufReader::new(data);
         reader.read_to_end(&mut sub_buf)?;
-        buffers.push(Arc::from(sub_buf));
+        callback(Arc::from(sub_buf));
         Ok(())
     }
 }
@@ -83,11 +106,15 @@ impl<'cow> ChunckRead<'cow> {
     }
 }
 
-impl<'cow> ReadStrategies for ChunckRead<'cow> {
+impl<'cow> AsRef<Path> for ChunckRead<'cow> {
+    fn as_ref(&self) -> &Path {
+        &self.inner
+    }
+}
 
-    // type Data = Vec<u8>;
-    fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box< dyn Error>> {
-        let data = fs::File::open(&self.inner)?;
+impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for ChunckRead<'cow> where 'buffers:'cow{
+    fn use_across_file(&self,mut callback:Box<dyn FnMut(Arc<[u8]>) + 'cow>)->Result<(),Box<dyn Error>> {
+        let data = fs::File::open(&self.inner)?; 
         let mut sub_capacity_buffer = vec![0;self.chunck_size];
         let mut reader = BufReader::new(data);
         loop {
@@ -95,34 +122,8 @@ impl<'cow> ReadStrategies for ChunckRead<'cow> {
             if byte_read == 0 {
                 break;
             }
-            buffers.push(Arc::from(&sub_capacity_buffer[..byte_read]));
+            callback(Arc::from(&sub_capacity_buffer[..byte_read]));
         }
-        Ok(())
-    }
-}
-
-struct HashDirectoryRead<'cow> 
-{
-    inner:&'cow Path,
-}
-
-impl<'dir> TryFrom<&'dir Path> for HashDirectoryRead<'dir> {
-    type Error = Box<GlobalError>;
-
-    fn try_from(value: &'dir Path) -> Result<Self,Self::Error> {
-        if value.is_dir() {
-            Ok(HashDirectoryRead { inner:value })
-        } else {
-            Err(Box::new(GlobalError::InitError(String::from("Value from HashDirectoryRead must be a directory"))))
-        }
-    }
-}
-
-impl<'cow> ReadStrategies for HashDirectoryRead<'cow> {
-
-    fn flush(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(),Box<dyn Error>> {
-        let reader = FileReader::try_from(self.inner)?;
-        reader.flush_data(buffers)?;
         Ok(())
     }
 }
@@ -149,18 +150,22 @@ impl<'buffer> TryFrom<&'buffer Path> for ReadStrategy {
     }
 }
 
+
 impl ReadStrategy {
-    pub fn excute_reader_strategy<'a>(&'a self,buffer:&mut Vec<Arc<[u8]>>,path:&'a Path)-> Result<(),Box<dyn Error>>
+
+    fn get_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>> 
+        where 
+            'buffer:'callback
     {
-        let result:Box<dyn ReadStrategies> = match &self {
+        let result:Box<dyn ReadSyncStrategies> = match &self {
             Self::Smale => Box::new(SmaleRead::new( &path)),
             Self::Medium => Box::new(MediumRead::new(&path)?),
             Self::Large => Box::new(ChunckRead::new(&path, CHUNK_SMALL_SLICE)),
             Self::ExtraLarge => Box::new(ChunckRead::new(&path, CHUNK_MEDIUM_SLICE)),
         };
-        result.flush(buffer)?;
-        Ok(())
+        Ok(result)
     }
+
 }
 
 pub fn get_entries(path:&Path)-> Result<Vec<DirEntry>,io::Error>
@@ -181,10 +186,6 @@ pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Err
     }
     Ok(())
 }
-
-
-
-
 
 
 #[derive(Debug,Clone)]
@@ -234,161 +235,17 @@ impl FileReader
 
     pub fn flush_data(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(), io::Error>
     {
-        self.strategy.excute_reader_strategy(buffers, &self.inner)
+        let dyn_reader = self.strategy.get_dyn_reader(&self.inner)
         .map_err(|_|io::Error::new(io::ErrorKind::Other, "strategy can't handle reading"))?;
+        dyn_reader.flush(buffers).map_err(|_|io::Error::new(io::ErrorKind::Other, "can't flush data"))?;
+        Ok(())
+    }
+
+    pub fn use_accross_data(&self,mut_callback:impl FnMut(Arc<[u8]>))->Result<(), Box<dyn Error>>
+    {
+        let dyn_reader = self.strategy.get_dyn_reader(&self.inner)?;
+        dyn_reader.use_across_file(Box::new(mut_callback))?;
         Ok(())
     }
 
 }
-
-
-//-------------------------------------------------------------------------
-//----------------------------storage-Strategies---------------------------
-//-------------------------------------------------------------------------
-
-
-pub trait StorageStrategies<'path> where Self:AsRef<Path>
-{
-    fn init_data_storage(&self)->Result<File,Box<dyn Error>>;
-}
-
-//-------------------------------------------------------------------------
-struct NormalFile<'file> { 
-    parent: Cow<'file,Path>
-}
-
-impl<'file> From<&'file Path> for NormalFile<'file> {
-    fn from(value: &'file Path) -> Self {
-        NormalFile { parent: Cow::Borrowed(value) }
-    }
-}
-
-impl<'file> AsRef<Path> for NormalFile<'file> {
-    fn as_ref(&self) -> &Path {
-        &self.parent
-    }
-}
-
-impl<'file> From<&'file NormalFile<'file>> for PathBuf {
-    fn from(value: &'file NormalFile) -> Self {
-        value.into()
-    }
-}
-
-impl<'file> StorageStrategies<'file> for NormalFile<'file> {
-    fn init_data_storage(&self)->Result<File,Box<dyn Error>> {
-        Ok(fs::File::create_new(self)?)
-    }
-}
-
-//-------------------------------------------------------------------------
-
-struct HashContainerFile<'file> {
-    parent: Cow<'file,Path>
-}
-
-impl<'file> TryFrom<&'file Path> for HashContainerFile<'file> {
-    type Error = Box<dyn Error>;
-
-    fn try_from(value: &'file Path) -> Result<Self,Self::Error> {
-        Ok( 
-            HashContainerFile { parent: Cow::Borrowed(value) }
-        )
-    }
-}
-
-impl<'file> From<&'file HashContainerFile<'file>> for PathBuf {
-    fn from(value: &'file HashContainerFile) -> Self {
-        value.into()
-    }
-}
-
-impl<'file> AsRef<Path> for HashContainerFile< 'file> {
-    fn as_ref(&self) -> &Path {
-        &self.parent
-    }
-}
-
-impl<'file> StorageStrategies<'file> for HashContainerFile<'file> {
-    fn init_data_storage(&self)->Result<File,Box<dyn Error>> {
-        fs::create_dir(self)?;
-        let mut data_qcow = self.as_ref().to_path_buf();
-        data_qcow.push("index.qcow");
-        Ok(fs::File::create_new(data_qcow)?)
-    }
-}
-
-//-------------------------------------------------------------------------
-
-// struct StorageNavigator<'a,S:StorageStrategies<'a>>{
-//     strategy:&'a S
-// }
-
-// impl<'a,S:StorageStrategies<'a>> StorageNavigator<'a,S> {
-//     fn new(strategy:&'a S)->Self
-//     {
-//         // self.strategy = Some(strategy);
-//         StorageNavigator { strategy:strategy }
-//     }
-
-//     fn storage(self,buffers:&mut Vec<Box<[u8]>>)->Result<(),Box<dyn Error>>
-//     {
-//         self.strategy.store_in(buffers)?;
-//         Ok(())
-//     }
-// }
-
-// struct NavigatorStorage<'a> { 
-//     strategy:Box<&'a dyn StorageStrategies<'a>>,
-//     file:Option<File>
-// }
-
-
-
-// impl<'a> NavigatorStorage<'a> {
-
-//     pub fn new(path:&'a Path,predicate:usize)->Result<Self,Box<dyn Error>>
-//     {
-//         let storage_type:Box<&dyn StorageStrategies<'a>> = match predicate {
-//             x if x <= LARGE_FILE as usize => Box::new(&NormalFile::from(path)),
-//             _ => Box::new(&HashContainerFile::try_from(path)?)
-//         };
-//         Ok(NavigatorStorage { strategy: storage_type, file: None })
-//     }
-// }
-
-pub fn storage_file<'a>(path:&Path,predicate:usize)->Result<File,Box<dyn Error>>
-{
-    let storage_type:Box<dyn StorageStrategies> = match predicate {
-        x if x <= LARGE_FILE as usize => Box::new(NormalFile::from(path)),
-        _ => Box::new(HashContainerFile::try_from(path)?)
-    };
-    Ok(storage_type.init_data_storage()?) 
-}
-
-
-
-// struct CompositeHashFile<'dir> {
-//     inner: Cow<'dir,Path>
-// }
-
-// impl<'dir> From<&'dir Path> for CompositeHashFile<'dir> {
-//     fn from(value: &'dir Path) -> Self {
-//         CompositeHashFile { inner:  Cow::Borrowed(value)}
-//     }
-// } 
-
-
-// impl<'dir> StorageStrategies<'dir> for CompositeHashFile<'dir> {
-
-//     fn store_in(&self,buffers:&mut Vec<Box<[u8]>>)->Result<(),Box<dyn Error>> {
-//         for buffer in buffers.iter() {
-//             let mut temp_path = self.inner.to_path_buf();
-//             let hash_stringify = blake3::hash(buffer).to_string();
-//             temp_path.extend(&PathBuf::from(hash_stringify));
-//             let mut file = fs::File::create_new(temp_path)?;
-//             file.write(buffer)?;
-//         }
-//         Ok(())
-//     }
-// }
