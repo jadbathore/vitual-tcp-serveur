@@ -9,6 +9,8 @@
 
 use std::{sync::OnceLock,vec};
 
+#[cfg(feature = "deamon")]
+use futures::TryFutureExt;
 use futures::{StreamExt, stream::SplitStream};
 // #[cfg(feature = "deamon")]
 // use regex::Regex;
@@ -27,8 +29,11 @@ use tokio_tungstenite::{WebSocketStream, accept_hdr_async, tungstenite::{
     }
 };
 
+// #[cfg(feature = "deamon")]
+// use crate::structs::storage::storage_file;
+
 #[cfg(feature = "deamon")]
-use crate::structs::storage::storage_file;
+use crate::structs::storage::storage_strategy;
 
 #[cfg(feature = "client")]
 use {
@@ -47,7 +52,7 @@ use {
     crate::VFS_DIR,
     std::{path::PathBuf,str::FromStr,io::Write},
     regex::{Regex,RegexSet},
-    tokio_tungstenite::tungstenite::{Error as TungError,error::UrlError},
+    tokio_tungstenite::tungstenite::{Error as TungError},
     // zstd::bulk,
 };
 
@@ -160,20 +165,15 @@ impl NavigatorProtocols<CommandProtocols>
                             
                             let mut path_file:PathBuf = PathBuf::from(vfs);
                             path_file.extend(&PathBuf::from(sub_new_file));
-                            
-                            let mut file =  storage_file(&path_file,predicate_size).map_err(|_|TungError::Url(UrlError::UnsupportedUrlScheme))?;
+                            // let path = path_file.as_path();
+                            // tokio::spawn(storage_strategy(path_file.as_path(), predicate_size));
+                            // let mut  a = storage_strategy(path_file.as_path(), predicate_size).await.map_err(|_|TungError::Url(UrlError::UnsupportedUrlScheme)).await??;
+                            let mut a = storage_strategy(&path_file, predicate_size).await?;
                             while let Some(Ok(data)) = read.next().await {
-                                file.write(data.into_data().as_slice()).await;
+                                let _ = a.write(data.into_data().as_slice()).await;
                             }
-                            // match Flag::from_str(flag.into_text()?.as_str()).map_err(|_| TungError::Utf8)? {
-                            //     Flag::Directory => {
-                            //         path_file.extend(&PathBuf::from(sub_new_file + "/"))
-                            //     },
-                            //     Flag::File => {
-                            //         path_file.extend(&PathBuf::from(sub_new_file))
-                            //     }, 
-                            // };
-                        dbg!(path_file);
+                            
+                        // dbg!(path_file);
                             // let buffer = Vec::new();
                             // while let Some(Ok(chunck)) = read.next().await {
                             //     let data_chunck = chunck.into_data();
