@@ -10,7 +10,7 @@
 use std::{sync::OnceLock,vec};
 
 #[cfg(feature = "deamon")]
-use futures::TryFutureExt;
+// use futures::TryFutureExt;
 use futures::{StreamExt, stream::SplitStream};
 // #[cfg(feature = "deamon")]
 // use regex::Regex;
@@ -50,7 +50,7 @@ use {
 #[cfg(feature = "deamon")]
 use {
     crate::VFS_DIR,
-    std::{path::PathBuf,str::FromStr,io::Write},
+    std::{path::PathBuf,str::FromStr},
     regex::{Regex,RegexSet},
     tokio_tungstenite::tungstenite::{Error as TungError},
     // zstd::bulk,
@@ -162,7 +162,6 @@ impl NavigatorProtocols<CommandProtocols>
                         let predicate_size = usize::from_str(&size.into_text()?).map_err(|_|TungError::Utf8)?;
 
                         if let Some(vfs ) = VFS_DIR.get() {
-                            
                             let mut path_file:PathBuf = PathBuf::from(vfs);
                             path_file.extend(&PathBuf::from(sub_new_file));
                             // let path = path_file.as_path();
@@ -233,7 +232,7 @@ fn error_handle_set_oncelock<T>(_:T)->ErrorResponse
     ErrorResponse::new(Some(String::from("can't reset data")))
 }
 
-#[cfg(feature = "client")]
+#[cfg(feature = "client")] 
 pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
 {
     let stream_navigator:NavigatorProtocols<Protocols> = NavigatorProtocols::new();

@@ -1,18 +1,18 @@
 use std::{
-    borrow::Cow, 
+    // borrow::Cow, 
     path::{Path,PathBuf}, pin::Pin, 
     sync::Arc
 };
 use futures::io;
 use tokio::{
     fs::{self,File},
-    task::JoinHandle
+    // task::JoinHandle
 }; 
 
 use commun_utils_handler::fs_strategies::LARGE_FILE;
 
 
-type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub trait StorageStrategies where Self:AsRef<Path>
 {
@@ -48,14 +48,14 @@ impl<'path> StorageStrategies for NormalFile
     fn init_data_storage<'pinbox>(self:Arc<Self>)->BoxFuture<'pinbox,Result<File,io::Error>>
     {
         Box::pin(async move {
-            File::create_new(self.as_ref().as_ref()).await
+            File::create_new(self.as_ref()).await
         })
     }
 }
 
 //-------------------------------------------------------------------------
 
-struct HashContainerFile{
+struct HashContainerFile {
     parent: Arc<Path>
 }
 
@@ -102,7 +102,7 @@ fn get_dyn_storage_strategy<'path>(path:&'path Path,predicate:usize)->Arc<dyn St
 {
     match predicate {
         x if x <= LARGE_FILE as usize => Arc::from(NormalFile::from(path)),
-        _ => Arc::new(HashContainerFile::from(path))
+        _ => Arc::from(HashContainerFile::from(path))
     }
 }
 

@@ -11,3 +11,5 @@ pub mod iterator;
 
 #[cfg(feature = "deamon")]
 pub mod storage;
+
+pub mod async_strategies;

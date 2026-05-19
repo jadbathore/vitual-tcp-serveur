@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::{Path}, sync::Arc
+    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::{self, Path}, sync::Arc
 };
 
 use crate::errors::GlobalError;
@@ -36,24 +36,24 @@ pub trait ReadSyncStrategies<'callback,'buffers>
     }
 }
 
-struct SmaleRead<'cow> {
+struct SmaleSyncRead<'cow> {
     inner:Cow<'cow,Path>
 }
 
-impl<'cow> AsRef<Path> for SmaleRead<'cow> {
+impl<'cow> AsRef<Path> for SmaleSyncRead<'cow> {
     fn as_ref(&self) -> &Path {
         &self.inner
     }
 }
 
-impl<'cow> SmaleRead<'cow> {
+impl<'cow> SmaleSyncRead<'cow> {
     fn new(entry: &'cow Path) -> Self
     {
-        SmaleRead {inner:Cow::from(entry)} 
+        SmaleSyncRead {inner:Cow::from(entry)} 
     }
 }
 
-impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for SmaleRead<'cow> where 'buffers:'cow {
+impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for SmaleSyncRead<'cow> where 'buffers:'cow {
     fn use_across_file(&self,mut callback:Box<dyn FnMut(Arc<[u8]>) + 'cow>)->Result<(),Box<dyn Error>> {
         let data = fs::read(&self.inner)?;
         callback(Arc::from(data));
@@ -61,28 +61,28 @@ impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for SmaleRead<'cow> where 
     }
 }
 
-struct MediumRead<'cow> {
+struct MediumSyncRead<'cow> {
     inner:Cow<'cow,Path>,
     capacity:usize
 }
 
-impl<'cow> AsRef<Path> for MediumRead<'cow> {
+impl<'cow> AsRef<Path> for MediumSyncRead<'cow> {
     fn as_ref(&self) -> &Path {
         &self.inner
     }
 }
 
-impl<'cow> MediumRead<'cow> {
+impl<'cow> MediumSyncRead<'cow> {
     fn new(entry: &'cow Path) -> Result<Self, Box<dyn Error>> 
     {
         let capacity = <u64 as TryInto<usize>>::try_into(entry.metadata()?.len()).map_err(|err|{
             GlobalError::from(err)
         })?;
-        Ok( MediumRead { inner: Cow::from(entry) ,capacity:capacity } )
+        Ok( MediumSyncRead { inner: Cow::from(entry) ,capacity:capacity } )
     }
 }
 
-impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for MediumRead<'cow> where 'buffers:'cow {
+impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for MediumSyncRead<'cow> where 'buffers:'cow {
     fn use_across_file(&self,mut callback:Box<dyn FnMut(Arc<[u8]>) + 'cow>)->Result<(),Box<dyn Error>> {
         let data = fs::File::open(&self.inner)?;
         let mut sub_buf:Vec<u8> = Vec::with_capacity(self.capacity); 
@@ -93,26 +93,26 @@ impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for MediumRead<'cow> where
     }
 }
 
-struct ChunckRead<'cow> {
+struct ChunckSyncRead<'cow> {
     inner:Cow<'cow,Path>,
     chunck_size:usize,
 }
 
-impl<'cow> ChunckRead<'cow> {
+impl<'cow> ChunckSyncRead<'cow> {
     
     fn new(entry:&'cow Path,chunk_size:usize)->Self
     { 
-        ChunckRead {inner: Cow::from(entry), chunck_size:chunk_size}
+        ChunckSyncRead {inner: Cow::from(entry), chunck_size:chunk_size}
     }
 }
 
-impl<'cow> AsRef<Path> for ChunckRead<'cow> {
+impl<'cow> AsRef<Path> for ChunckSyncRead<'cow> {
     fn as_ref(&self) -> &Path {
         &self.inner
     }
 }
 
-impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for ChunckRead<'cow> where 'buffers:'cow{
+impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for ChunckSyncRead<'cow> where 'buffers:'cow{
     fn use_across_file(&self,mut callback:Box<dyn FnMut(Arc<[u8]>) + 'cow>)->Result<(),Box<dyn Error>> {
         let data = fs::File::open(&self.inner)?; 
         let mut sub_capacity_buffer = vec![0;self.chunck_size];
@@ -151,22 +151,21 @@ impl<'buffer> TryFrom<&'buffer Path> for ReadStrategy {
 }
 
 
-impl ReadStrategy {
+// impl ReadStrategy {
 
-    fn get_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>> 
-        where 
-            'buffer:'callback
-    {
-        let result:Box<dyn ReadSyncStrategies> = match &self {
-            Self::Smale => Box::new(SmaleRead::new( &path)),
-            Self::Medium => Box::new(MediumRead::new(&path)?),
-            Self::Large => Box::new(ChunckRead::new(&path, CHUNK_SMALL_SLICE)),
-            Self::ExtraLarge => Box::new(ChunckRead::new(&path, CHUNK_MEDIUM_SLICE)),
-        };
-        Ok(result)
-    }
-
-}
+//     fn get_boxed_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>> 
+//         where 
+//             'buffer:'callback
+//     {
+//         let result:Box<dyn ReadSyncStrategies> = match &self {
+//             Self::Smale => Box::new(SmaleSyncRead::new( &path)),
+//             Self::Medium => Box::new(MediumSyncRead::new(&path)?),
+//             Self::Large => Box::new(ChunckSyncRead::new(&path, CHUNK_SMALL_SLICE)),
+//             Self::ExtraLarge => Box::new(ChunckSyncRead::new(&path, CHUNK_MEDIUM_SLICE)),
+//         };
+//         Ok(result)
+//     }
+// }
 
 pub fn get_entries(path:&Path)-> Result<Vec<DirEntry>,io::Error>
 {
@@ -233,9 +232,22 @@ impl FileReader
         Ok(self.inner.metadata()?.len())
     }
 
+    fn get_boxed_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>> 
+        where 
+            'buffer:'callback
+    {
+        let result:Box<dyn ReadSyncStrategies> = match self.strategy {
+            ReadStrategy::Smale => Box::new(SmaleSyncRead::new( &path)),
+            ReadStrategy::Medium => Box::new(MediumSyncRead::new(&path)?),
+            ReadStrategy::Large => Box::new(ChunckSyncRead::new(&path, CHUNK_SMALL_SLICE)),
+            ReadStrategy::ExtraLarge => Box::new(ChunckSyncRead::new(&path, CHUNK_MEDIUM_SLICE)),
+        };
+        Ok(result)
+    }
+
     pub fn flush_data(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(), io::Error>
     {
-        let dyn_reader = self.strategy.get_dyn_reader(&self.inner)
+        let dyn_reader = self.get_boxed_dyn_reader(&self.inner)
         .map_err(|_|io::Error::new(io::ErrorKind::Other, "strategy can't handle reading"))?;
         dyn_reader.flush(buffers).map_err(|_|io::Error::new(io::ErrorKind::Other, "can't flush data"))?;
         Ok(())
@@ -243,7 +255,7 @@ impl FileReader
 
     pub fn use_accross_data(&self,mut_callback:impl FnMut(Arc<[u8]>))->Result<(), Box<dyn Error>>
     {
-        let dyn_reader = self.strategy.get_dyn_reader(&self.inner)?;
+        let dyn_reader = self.get_boxed_dyn_reader(&self.inner)?;
         dyn_reader.use_across_file(Box::new(mut_callback))?;
         Ok(())
     }
