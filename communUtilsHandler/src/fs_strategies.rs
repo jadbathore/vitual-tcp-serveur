@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::{self, Path}, sync::Arc
+    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, path::Path, sync::Arc
 };
 
 use crate::errors::GlobalError;
@@ -194,14 +194,11 @@ pub struct FileReader
     strategy:ReadStrategy
 }
 
-impl Deref for FileReader {
-    type Target = Path;
-
-    fn deref(&self) -> &Self::Target {
+impl AsRef<Path> for FileReader {
+    fn as_ref(&self) -> &Path {
         &self.inner
     }
 }
-
 
 impl<'a> TryFrom<&'a Path> for FileReader {
 
@@ -215,22 +212,47 @@ impl<'a> TryFrom<&'a Path> for FileReader {
     }
 }
 
+
+// trait ReaderCallable {}
+
+// type f = impl FnMut(Arc<[u8]>);
+
+// impl ReaderCallable for f {}
+
+// impl ReaderStrategist for FileReader {
+//     fn flush_data(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(), io::Error>
+//     {
+//         let dyn_reader = self.get_boxed_dyn_reader(&self.inner)
+//         .map_err(|_|io::Error::new(io::ErrorKind::Other, "strategy can't handle reading"))?;
+//         dyn_reader.flush(buffers).map_err(|_|io::Error::new(io::ErrorKind::Other, "can't flush data"))?;
+//         Ok(())
+//     }
+
+//     fn use_accross_data(&self,mut_callback:impl )->Result<(), Box<dyn Error>>
+//     {
+//         let dyn_reader = self.get_boxed_dyn_reader(&self.inner)?;
+//         dyn_reader.use_across_file(Box::new(mut_callback))?;
+//         Ok(())
+//     }
+// }
+
+
 impl FileReader
 {
-    pub fn get_string_lossy_url(&self)->Cow<'_, str>
-    {
-        self.inner.to_string_lossy()
-    }
+    // pub fn get_string_lossy_url(&self)->Cow<'_, str>
+    // {
+    //     self.inner.to_string_lossy()
+    // }
     
-    pub fn get_strategy(&self)->&ReadStrategy 
-    {
-        &self.strategy
-    }
+    // pub fn get_strategy(&self)->&ReadStrategy 
+    // {
+    //     &self.strategy
+    // }
 
-    pub fn size(&self)->Result<u64,io::Error>
-    {
-        Ok(self.inner.metadata()?.len())
-    }
+    // pub fn size(&self)->Result<u64,io::Error>
+    // {
+    //     Ok(self.inner.metadata()?.len())
+    // }
 
     fn get_boxed_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>> 
         where 

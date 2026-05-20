@@ -3,13 +3,13 @@ use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxView, WasiView};
 
 
 #[cfg(feature = "client")]
-use crate::{CACHE_CAP,structs::payloads::payload::DataFile};
+use crate::CACHE_CAP;
+
+// #[cfg(feature = "client")]
+// use std::{error::Error, io, path::Path};
 
 #[cfg(feature = "client")]
-use std::io;
-
-#[cfg(feature = "client")]
-use commun_utils_handler::fs_strategies::ReadStrategy;
+use commun_utils_handler::fs_strategies::MEDIUM_FILE;
 
 pub struct WasiState {
     ctx:WasiCtx,
@@ -45,18 +45,16 @@ pub struct PredicatorCache {
 
 #[cfg(feature = "client")]
 impl PredicatorCache {
-    pub fn predicate_cache_use(&mut self,type_data:&DataFile)->Result<bool,io::Error>
+    pub const fn predicate_cache_use(&mut self,size:u64)->bool
     {   
-        match type_data.get_strategy() {
-            ReadStrategy::Smale => {
-                let condition = CACHE_CAP > (type_data.size()? + self.cache_use);
-                if condition {
-                    self.cache_use += type_data.size()?;
-                }
-                Ok(condition)
-            },
-            _ => Ok(false)
-        }
+        
+        if size <= MEDIUM_FILE {
+            let condition = CACHE_CAP > (size + self.cache_use);
+            if condition {
+                self.cache_use += size;
+            }
+            return condition;
+        } 
+        false
     }
-
 }

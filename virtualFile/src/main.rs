@@ -31,11 +31,13 @@ use {
 #[cfg(feature = "deamon")]
 use crate::general::handle_deamon;
 
+#[cfg(feature = "client")]
+use crate::structs::async_strategies::FileAsyncReader;
 use crate::structs::builder::wasi::build_wasi_call;
 
 
 #[cfg(feature = "client")]
-use commun_utils_handler::fs_strategies::recursive_file_read;
+use commun_utils_handler::fs_strategies::{FileReader, recursive_file_read};
 
 // use crate::{
 //     structs::{
@@ -96,16 +98,18 @@ fn set_env_var()->Result<(), Box<dyn Error>>
 #[cfg(feature = "client")]
 fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
 {
+    //TODO faire en sorte que te.txt/index.pcow -> te.txt dans path 
     if let Some(path) = vfs_path {
-        let mut data_to_payload:Vec<DataFile> = Vec::new();
-        let mut data_to_cache:Vec<DataFile> = Vec::new();
+        let mut data_to_payload:Vec<DataFile<FileAsyncReader>> = Vec::new();
+        let mut data_to_cache:Vec<DataFile<FileReader>> = Vec::new();
         let mut predicator:PredicatorCache = PredicatorCache::default();
-        recursive_file_read(path,&mut |file| {
-            let datafile = DataFile::new(file)?;
-            if predicator.predicate_cache_use(&datafile)? {
-                data_to_cache.push(datafile);
+        recursive_file_read(path,&mut |path| {
+            // let datafile = DataFile::new(file)?;
+            let size:u64 = path.metadata().iter().len().try_into()?;
+            if predicator.predicate_cache_use(size) {
+                data_to_cache.push(DataFile::new(FileReader::try_from(path)?)?);
             } else {
-                data_to_payload.push(datafile);
+                data_to_payload.push(DataFile::new(FileAsyncReader::try_from(path)?)?);
             }
             Ok(())
         }).map_err(|_|{Box::new(GlobalError::NotExistingDir(path.to_string_lossy().to_string()))})?;

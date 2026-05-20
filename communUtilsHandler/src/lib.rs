@@ -86,12 +86,12 @@ impl<'keys> ScanBytesSubject<'keys>
             if CAP_ERROR < warn_score {
                 let msg = 
                 String::from("A suspicious file ") +
-                &file.get_string_lossy_url() + 
+                &file.as_ref().to_string_lossy() + 
                 " prevents the program from functioning(\"" +
                 &warn.join("\",\"") + "\")";
                 panic!("{}: {}","error".bold().red(),msg.red());
             }
-            println!("{}:{}(\"{}\")","warning".yellow().bold(),file.get_string_lossy_url().yellow(),warn.join("\",\""));
+            println!("{}:{}(\"{}\")","warning".yellow().bold(),file.as_ref().to_string_lossy().yellow(),warn.join("\",\""));
         }
         Ok(())
     }

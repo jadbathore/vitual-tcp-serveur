@@ -1,21 +1,26 @@
 use std::{
-    borrow::Cow, error::Error, io::{self, Read}, ops::Deref, path::{self, Path}, pin::Pin, sync::Arc
+    error::Error, io ,path::Path, pin::Pin, sync::Arc
 };
 
 use commun_utils_handler::{
     errors::GlobalError,
     fs_strategies::{
-        CHUNK_MEDIUM_SLICE, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE, MEDIUM_FILE, ReadStrategy
+        CHUNK_MEDIUM_SLICE, CHUNK_SMALL_SLICE,ReadStrategy
     },
 };
 use futures::lock::Mutex;
+// use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
 
-use crate::structs::storage::BoxFuture;
-use tokio::{fs, io::AsyncReadExt};
+// use crate::{general::ReadSender};
+
+
+use tokio::{sync::mpsc,fs, io::AsyncReadExt};
 
 use tokio::io::BufReader;
 
-pub type MutableBoxedFuture<'a,T> = Pin<Box<dyn Future<Output = T>  + 'a>>;
+
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
 
 // type MutableBoxedFuture<'callback,A,R> = Box<dyn FnMut(A)->Pin<Box<dyn Future<Output = Result<R,Box<dyn Error>>>>> + Send + 'callback>;
 
@@ -33,50 +38,22 @@ pub type MutableBoxedFuture<'a,T> = Pin<Box<dyn Future<Output = T>  + 'a>>;
 //-------------------------------------------------------------------------
 
 
-pub trait ReadAsyncStrategies where Self:AsRef<Path> {
-    fn use_across_file<'callback>(self:Arc<Self>,callback:MutableBoxedFuture<'callback,Result<(),io::Error>>)->BoxFuture<'callback,Result<(),io::Error>>;
-    fn flush<'buffers>(self:Arc<Self>,mut mutex_buffers:Mutex<Vec<Arc<[u8]>>>)->BoxFuture<'buffers,Result<(),io::Error>> {
-        tokio::spawn(async move {
-            
-        });
-        self.use_across_file(Box::pin(async move {
-            let buffers = mutex_buffers.get_mut();
-            buffers.push(Arc::from(Vec::new()));
+pub trait ReadAsyncStrategies where Self:AsRef<Path> + Send + Sync {
+    fn use_across_file<'path>(&'path self)->BoxFuture<'path,Result<mpsc::Receiver<Arc<[u8]>>,io::Error>>;
+    // fn get_capacity(self:Arc<Self>)->usize;
+    fn flush<'path>(&'path self,mut mutex_buffers:Mutex<Vec<Arc<[u8]>>>)->BoxFuture<'path,Result<(),io::Error>> 
+        where 
+            Self: 'path
+    {
+        Box::pin(async move {
+            let mut buffer = mutex_buffers.get_mut();
+            let mut rx = self.use_across_file().await?;
+            rx.recv_many(&mut buffer, 1).await;
             Ok(())
-        }))
+        })
     }
 
 }
-
-// pub trait ReadAsyncStrategies
-//     where 
-//         Self:AsRef<Path>,
-// {
-//     fn use_across_file<'callback>(self,callback:MutableBoxedFuture<'callback,Arc<[u8]>,()>)->BoxFuture<'callback,Result<(),io::Error>>;
-//     fn flush<'buffers>(self:Arc<Self>,buffers:Mutex<Vec<Arc<[u8]>>>)->BoxFuture<'buffers,Result<(),io::Error>>
-//     {
-
-//         // let callback:MutableBoxedFuture<'_,Arc<[u8]>,()> = Box::new(&mut |chunck| {
-//         //     Box::pin(async move { 
-//         //         let mut mutable = buffers.get_mut();
-//         //         mutable.push(chunck);
-//         //         Ok(())
-//         //     })
-//         // });
-//         let call = Box::new(&mut |chunck| {
-//             let buffer = buffers;
-                
-//             async fn call(mut buf:Mutex<Vec<Arc<[u8]>>>,chunck:Arc<[u8]> ) -> Result<(),io::Error>{
-//                 let mutable = buf.get_mut();
-//                 mutable.push(chunck);
-//                 Ok(())
-//             }
-//             let a 
-//             Box::pin(call(buffers,chunck))
-//         });
-//         self.use_across_file(call)
-//     }
-// }
 
 struct SmaleAsyncRead {
     inner:Arc<Path>
@@ -97,12 +74,15 @@ impl SmaleAsyncRead {
 }
 
 impl ReadAsyncStrategies for SmaleAsyncRead  {
-    fn use_across_file<'callback>(self:Arc<Self>,mut callback:MutableBoxedFuture<'callback,()>)->BoxFuture<'callback,Result<(),io::Error>>
+     fn use_across_file<'callback>(&'callback self)->BoxFuture<'callback,Result<mpsc::Receiver<Arc<[u8]>>,io::Error>>
     {
         Box::pin(async move {
+            let (tx,rx) = mpsc::channel(10);
             let data = fs::read(self.as_ref()).await?;
-            Box::pin(callback(Arc::from(data)));
-            Ok(())
+            let _ = tx.send(Arc::from(data)).await;
+            // callback.await;
+            // Box::pin(callback(Arc::from(data)));
+            Ok(rx)
         })
     }
 }
@@ -129,16 +109,18 @@ impl MediumAsyncRead {
 }
 
 impl ReadAsyncStrategies for MediumAsyncRead {
-    fn use_across_file<'callback>(self:Arc<Self>,mut callback:MutableBoxedFuture<'callback,()>)->BoxFuture<'callback,Result<(),io::Error>>
+     fn use_across_file<'callback>(&'callback self)->BoxFuture<'callback,Result<mpsc::Receiver<Arc<[u8]>>,io::Error>>
     {
         Box::pin(async move {
+            let (tx,rx) = mpsc::channel(10);
             let data = fs::File::open(&self.inner).await?;
             let mut sub_buf:Vec<u8> = Vec::with_capacity(self.capacity); 
             let mut reader = BufReader::new(data);
             reader.read_to_end(&mut sub_buf).await?;
             // reader.read_to_end(&mut sub_buf)?;
-            callback(Arc::from(sub_buf));
-            Ok(())
+            let _ = tx.send(Arc::from(sub_buf)).await;
+            // callback(Arc::from(sub_buf));
+            Ok(rx)
         })
         
         // Ok(())
@@ -166,9 +148,10 @@ impl<'cow> AsRef<Path> for ChunckAsyncRead {
 
 
 impl ReadAsyncStrategies for ChunckAsyncRead {
-    fn use_across_file<'callback>(self:Arc<Self>,mut callback:MutableBoxedFuture<'callback,Arc<[u8]>,()>)->BoxFuture<'callback,Result<(),io::Error>>
+     fn use_across_file<'callback>(&'callback self)->BoxFuture<'callback,Result<mpsc::Receiver<Arc<[u8]>>,io::Error>>
     {
         Box::pin(async move {
+            let (tx,rx) = mpsc::channel(10);
             let data = fs::File::open(&self.inner).await?; 
             let mut sub_capacity_buffer:Vec<u8> = vec![0;self.chunck_size];
             let mut reader = BufReader::new(data);
@@ -178,43 +161,13 @@ impl ReadAsyncStrategies for ChunckAsyncRead {
                 if byte_read == 0 {
                     break;
                 }
-                callback(Arc::from(&sub_capacity_buffer[..byte_read]));
+                tx.send(Arc::from(&sub_capacity_buffer[..byte_read])).await
+                .map_err(|err|{io::Error::new(io::ErrorKind::Interrupted,err.to_string())})?;
                 }
-            Ok(())
+            Ok(rx)
         })
-        // let data = fs::File::open(&self.inner); 
-        // let mut sub_capacity_buffer = vec![0;self.chunck_size];
-        // let mut reader = BufReader::new(data);
-        // loop {
-        //     let byte_read = reader.read(&mut sub_capacity_buffer)?;
-        //     if byte_read == 0 {
-        //         break;
-        //     }
-        //     callback(Arc::from(&sub_capacity_buffer[..byte_read]));
-        // }
-        // Ok(())
     }
 }
-
-
-
-
-
-// impl ReadStrategy {
-
-//     fn get_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>> 
-//         where 
-//             'buffer:'callback
-//     {
-//         let result:Box<dyn ReadSyncStrategies> = match &self {
-//             Self::Smale => Box::new(SmaleSyncRead::new( &path)),
-//             Self::Medium => Box::new(MediumAsyncRead::new(&path)?),
-//             Self::Large => Box::new(ChunckAsyncRead::new(&path, CHUNK_SMALL_SLICE)),
-//             Self::ExtraLarge => Box::new(ChunckAsyncRead::new(&path, CHUNK_MEDIUM_SLICE)),
-//         };
-//         Ok(result)
-//     }
-// }
 
 
 #[derive(Debug,Clone)]
@@ -224,10 +177,8 @@ pub struct FileAsyncReader
     strategy:ReadStrategy
 }
 
-impl Deref for FileAsyncReader {
-    type Target = Path;
-
-    fn deref(&self) -> &Self::Target {
+impl AsRef<Path> for FileAsyncReader {
+    fn as_ref(&self) -> &Path {
         &self.inner
     }
 }
@@ -247,23 +198,23 @@ impl<'a> TryFrom<&'a Path> for FileAsyncReader {
 
 impl FileAsyncReader
 {
-    pub fn get_string_lossy_url(&self)->Cow<'_, str>
-    {
-        self.inner.to_string_lossy()
-    }
+    // pub fn get_string_lossy_url(&self)->Cow<'_, str>
+    // {
+    //     self.inner.to_string_lossy()
+    // }
     
-    pub fn get_strategy(&self)->&ReadStrategy 
-    {
-        &self.strategy
-    }
+    // pub fn get_strategy(&self)->&ReadStrategy 
+    // {
+    //     &self.strategy
+    // }
 
-    pub fn size(&self)->Result<u64,io::Error>
-    {
-        Ok(self.inner.metadata()?.len())
-    }
+    // pub fn size(&self)->Result<u64,io::Error>
+    // {
+    //     Ok(self.inner.metadata()?.len())
+    // }
 
     fn get_dyn_arc_reader<'callback>(&self,path:&'callback Path)->Result<Arc<dyn ReadAsyncStrategies + 'callback>,Box<dyn Error>> {
-        let result:Arc<dyn ReadAsyncStrategies> = match &self.strategy {
+        let result:Arc<dyn ReadAsyncStrategies + 'callback> = match &self.strategy {
             ReadStrategy::Smale => Arc::from(SmaleAsyncRead::new( &path)),
             ReadStrategy::Medium => Arc::from(MediumAsyncRead::new(&path)?),
             ReadStrategy::Large => Arc::from(ChunckAsyncRead::new(&path, CHUNK_SMALL_SLICE)),
@@ -280,11 +231,27 @@ impl FileAsyncReader
         Ok(())
     }
 
-    pub async fn use_accross_data<'callback>(&self,mut_callback:MutableBoxedFuture<'callback,Arc<[u8]>,()>)->Result<(), Box<dyn Error>>
+    pub async fn use_accross_data<'callback>(&self,mut callback:impl AsyncFnMut(Arc<[u8]>))->Result<(), Box<dyn Error>>
     {
         let dyn_reader = self.get_dyn_arc_reader(&self.inner)?;
-        dyn_reader.use_across_file(mut_callback).await?;
+        let mut rx = dyn_reader.use_across_file().await?;
+
+        let mut buffer = Vec::with_capacity(100);
+        rx.recv_many(&mut buffer, 100).await;
+        for chunck in buffer {
+            callback(chunck).await
+        }
         Ok(())
     }
 
 }
+
+
+// pub type WriteSender = SplitSink<WebSocketStream<TcpStream>,Message>;
+// async fn a<'a>(path: &'a Path,read:&mut ReadSender){
+//     let file_async = FileAsyncReader::try_from(path).unwrap();
+//     file_async.use_accross_data(async |value |{
+//         read.next().await;
+
+//     }).await.unwrap();
+// }

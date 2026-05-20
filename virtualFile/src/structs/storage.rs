@@ -12,8 +12,6 @@ use tokio::{
 use commun_utils_handler::fs_strategies::LARGE_FILE;
 
 
-pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
-
 pub trait StorageStrategies where Self:AsRef<Path>
 {
     fn init_data_storage<'path>(self:Arc<Self>)->BoxFuture<'path,Result<File,io::Error>>;
