@@ -244,10 +244,10 @@ impl FileReader
     //     self.inner.to_string_lossy()
     // }
     
-    // pub fn get_strategy(&self)->&ReadStrategy 
-    // {
-    //     &self.strategy
-    // }
+    pub fn get_strategy(&self)->&ReadStrategy 
+    {
+        &self.strategy
+    }
 
     // pub fn size(&self)->Result<u64,io::Error>
     // {

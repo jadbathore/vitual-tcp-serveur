@@ -1,6 +1,6 @@
 use std::{
     // borrow::Cow, 
-    path::{Path,PathBuf}, pin::Pin, 
+    path::{Path,PathBuf}, 
     sync::Arc
 };
 use futures::io;
@@ -10,6 +10,8 @@ use tokio::{
 }; 
 
 use commun_utils_handler::fs_strategies::LARGE_FILE;
+
+use crate::general::BoxFuture;
 
 
 pub trait StorageStrategies where Self:AsRef<Path>

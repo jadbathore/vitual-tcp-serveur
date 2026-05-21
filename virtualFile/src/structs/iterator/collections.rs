@@ -288,9 +288,37 @@ impl PayloadSender for StaticAssetIterator<PayloadCollection>
     }
 
     async fn send_payload(&self,write:&mut WriteSender,item:&'static DataFile<FileAsyncReader>) {
+        if let Ok(payload) = item.get_payload().stringify_to_json() {
+            if item.is_chunckable() {
+                let mut buffers = Vec::new();
+                match item.flush_data(&mut buffers).await {
+                    Ok(()) => {
+                        let _ = write.send(Message::Text(payload)).await;
+                        for buffer in buffers {
+                            let _ = write.send(Message::Binary(buffer.to_vec())).await;
+                        }
+                    },
+                    Err(err) => println!("flush error: {}",err.to_string())
+                }
+            } else {
+                // TODO comprend pourquoi ça envoie Qu'un chunck 
+                match item.use_accross_data().await {
+                    Ok(mut rx) => {
+                        while let Some(buffer) = rx.recv().await {
+                            let _ = write.send(Message::Binary(buffer.to_vec())).await;
+                        }
+                    }
+                    Err(err) => println!("use accross error: {}",err.to_string())
+                };
+            }
+            // item.flush_data(&mut datas).await;
+        }
+
+
+
         let mut datas:Vec<Arc<[u8]>> = Vec::new();
 
-        // item.use_accross_data(callback);
+        
 
         if let (Ok(_),Ok(payload)) = (item.flush_data(&mut datas).await,item.get_payload().stringify_to_json())
         {
@@ -335,5 +363,5 @@ impl PayloadSender for StaticAssetIterator<CacheCollection>
 
 impl PayloadCloser for StaticAssetIterator<CacheCollection>{}
 
-#[cfg(feature = "client")]
+
 impl PayloadCloser for StaticAssetsCollection{}

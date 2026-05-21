@@ -7,10 +7,9 @@
 //     futures::stream::SplitSink,
 // };
 
-use std::{sync::OnceLock,vec};
+use std::{pin::Pin, sync::OnceLock, vec};
 
 #[cfg(feature = "deamon")]
-// use futures::TryFutureExt;
 use futures::{StreamExt, stream::SplitStream};
 // #[cfg(feature = "deamon")]
 // use regex::Regex;
@@ -24,12 +23,14 @@ use derive_utils::IterableStringifyEnum;
 use commun_utils_handler::IterableStringifyEnum;
 // use std::path::Path;
 
-use futures::{StreamExt, stream::SplitStream};
 
 use tokio_tungstenite::{WebSocketStream, accept_hdr_async, tungstenite::{ 
         handshake::{client::Request, server::ErrorResponse}, http::{HeaderValue, Response}
     }
 };
+
+
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 // #[cfg(feature = "deamon")]
 // use crate::structs::storage::storage_file;
@@ -45,7 +46,7 @@ use {
     {
         tokio_tungstenite::tungstenite::Message,
         std::sync::Arc,
-        futures::stream::SplitSink,
+        futures::{stream::SplitSink,StreamExt, stream::SplitStream}
     }
 };
 
@@ -118,7 +119,6 @@ impl<P:IterableStringifyEnum> NavigatorProtocols<P> {
     pub fn hands_shake_callback(&self)-> impl FnOnce(&Request,Response<()>)->Result<Response<()>,ErrorResponse> 
     {
         move |req:&Request,mut res:Response<()>| {
-
                 if let Some(p) = req.headers().get("sec-websocket-protocol") {
                     let inner = p.to_str().map_err(|err|{
                         ErrorResponse::new(Some(err.to_string()))
@@ -235,7 +235,7 @@ fn error_handle_set_oncelock<T>(_:T)->ErrorResponse
 }
 
 #[cfg(feature = "client")] 
-pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
+pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>) 
 {
     let stream_navigator:NavigatorProtocols<Protocols> = NavigatorProtocols::new();
     if let Ok(ws) = accept_hdr_async(stream, stream_navigator.hands_shake_callback()).await {

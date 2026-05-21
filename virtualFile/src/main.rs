@@ -1,5 +1,6 @@
 
 
+
 use std::{env, error::Error, path::PathBuf, sync::OnceLock};
 
 use lazy_static::lazy_static;
@@ -38,24 +39,6 @@ use crate::structs::builder::wasi::build_wasi_call;
 
 #[cfg(feature = "client")]
 use commun_utils_handler::fs_strategies::{FileReader, recursive_file_read};
-
-// use crate::{
-//     structs::{
-        
-//     }
-// };
-
-
-
-
-// thread_local! {
-//     static BUFFERS: RefCell<Vec<Vec<u8>>> = RefCell::new(panic!("no buffer provided"));
-
-//     // static NEXT_ID: RefCell<u32> = RefCell::new(0);
-// }
-
-
-
 
 lazy_static!(
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
@@ -98,7 +81,6 @@ fn set_env_var()->Result<(), Box<dyn Error>>
 #[cfg(feature = "client")]
 fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
 {
-    //TODO faire en sorte que te.txt/index.pcow -> te.txt dans path 
     if let Some(path) = vfs_path {
         let mut data_to_payload:Vec<DataFile<FileAsyncReader>> = Vec::new();
         let mut data_to_cache:Vec<DataFile<FileReader>> = Vec::new();
@@ -148,9 +130,6 @@ fn main()->Result<(),Box<dyn Error>>
         println!("{}",GlobalError::WasiError);
         GlobalError::WasiError
     })?;
-
-    // let PathBuf = PathBuf::from("../../test/big_4k.exr/000f3cd5eba1b0d03906e08824849255cf8e805cdb38af15b954942c8be5f096");
-    // let a = PathBuf.iter().;
 
     #[cfg(feature = "client")]
     {

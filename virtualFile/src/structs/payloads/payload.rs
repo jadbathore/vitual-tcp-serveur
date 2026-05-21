@@ -1,6 +1,6 @@
 #[cfg(feature = "deamon")]
 use std::path::PathBuf;
-use std::{error::Error, ops::Deref, path::Path, sync::Arc };
+use std::{error::Error, ffi::OsStr, ops::Deref, path::Path, sync::Arc };
 use commun_utils_handler::fs_strategies::FileReader;
 // use fs_handler_wasi::commun_utils::{item::FileReader,read_strategies::ReadStrategy};
 
@@ -46,10 +46,13 @@ impl<R:ReaderStrategist> DataFile<R>
 {
     pub fn new(reader_strategy:R)->Result<Self,Box<dyn Error>>
     {
-        let a = reader_strategy.as_ref().to_path_buf();
+        let mut path_buffer = reader_strategy.as_ref().to_path_buf();
+        if Some(OsStr::new("index.qcow")) == path_buffer.file_name() {
+            path_buffer.pop();
+        }
         Ok(DataFile { 
             parent: reader_strategy,
-            payload: Arc::new(JsonInfo::new(a.as_path())?),
+            payload: Arc::new(JsonInfo::new(path_buffer.as_path())?),
         })
     }
     pub fn get_payload(&self)-> Arc<JsonInfo>

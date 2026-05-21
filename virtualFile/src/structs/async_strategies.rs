@@ -1,7 +1,6 @@
 use std::{
-    error::Error, io ,path::Path, pin::Pin, sync::Arc
+    error::Error, io ,path::Path, sync::Arc
 };
-
 use commun_utils_handler::{
     errors::GlobalError,
     fs_strategies::{
@@ -9,29 +8,10 @@ use commun_utils_handler::{
     },
 };
 use futures::lock::Mutex;
-// use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
-
-// use crate::{general::ReadSender};
-
-
 use tokio::{sync::mpsc,fs, io::AsyncReadExt};
-
 use tokio::io::BufReader;
 
-
-pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
-
-
-// type MutableBoxedFuture<'callback,A,R> = Box<dyn FnMut(A)->Pin<Box<dyn Future<Output = Result<R,Box<dyn Error>>>>> + Send + 'callback>;
-
-
-// pub const MEDIUM_FILE: u64 = 64 * 1024;
-// pub const LARGE_FILE: u64 = 10 * 1024 * 1024;
-// pub const HUGE_FILE: u64 = 100 * 1024 * 1024;
-// pub const GIGA_FILE: u64 = 1 * 1024 * 1024 * 1024; 
- 
-// pub const CHUNK_SMALL_SLICE:usize = 128 * 1024;
-// pub const CHUNK_MEDIUM_SLICE:usize =  CHUNK_SMALL_SLICE * 2;
+use crate::general::BoxFuture;
 
 //-------------------------------------------------------------------------
 //----------------------------read-Strategies------------------------------
@@ -40,15 +20,14 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 pub trait ReadAsyncStrategies where Self:AsRef<Path> + Send + Sync {
     fn use_across_file<'path>(&'path self)->BoxFuture<'path,Result<mpsc::Receiver<Arc<[u8]>>,io::Error>>;
-    // fn get_capacity(self:Arc<Self>)->usize;
-    fn flush<'path>(&'path self,mut mutex_buffers:Mutex<Vec<Arc<[u8]>>>)->BoxFuture<'path,Result<(),io::Error>> 
+    fn flush<'path>(&'path self,mut mutex_buffers:Mutex<Vec<Arc<[u8]>>>,limit:usize)->BoxFuture<'path,Result<(),io::Error>> 
         where 
             Self: 'path
     {
         Box::pin(async move {
             let mut buffer = mutex_buffers.get_mut();
             let mut rx = self.use_across_file().await?;
-            rx.recv_many(&mut buffer, 1).await;
+            rx.recv_many(&mut buffer,limit).await;
             Ok(())
         })
     }
@@ -74,7 +53,7 @@ impl SmaleAsyncRead {
 }
 
 impl ReadAsyncStrategies for SmaleAsyncRead  {
-     fn use_across_file<'callback>(&'callback self)->BoxFuture<'callback,Result<mpsc::Receiver<Arc<[u8]>>,io::Error>>
+    fn use_across_file<'path>(&'path self)->BoxFuture<'path,Result<mpsc::Receiver<Arc<[u8]>>,io::Error>>
     {
         Box::pin(async move {
             let (tx,rx) = mpsc::channel(10);
@@ -196,22 +175,19 @@ impl<'a> TryFrom<&'a Path> for FileAsyncReader {
     }
 }
 
+
+
+
 impl FileAsyncReader
 {
-    // pub fn get_string_lossy_url(&self)->Cow<'_, str>
-    // {
-    //     self.inner.to_string_lossy()
-    // }
-    
-    // pub fn get_strategy(&self)->&ReadStrategy 
-    // {
-    //     &self.strategy
-    // }
 
-    // pub fn size(&self)->Result<u64,io::Error>
-    // {
-    //     Ok(self.inner.metadata()?.len())
-    // }
+    const fn chunck_number(&self,size:usize)->usize {
+        match self.strategy {
+            ReadStrategy::Smale|ReadStrategy::Medium => 1,
+            ReadStrategy::Large => size/CHUNK_SMALL_SLICE,
+            ReadStrategy::ExtraLarge => size/CHUNK_MEDIUM_SLICE,
+        }
+    }
 
     fn get_dyn_arc_reader<'callback>(&self,path:&'callback Path)->Result<Arc<dyn ReadAsyncStrategies + 'callback>,Box<dyn Error>> {
         let result:Arc<dyn ReadAsyncStrategies + 'callback> = match &self.strategy {
@@ -223,35 +199,30 @@ impl FileAsyncReader
         Ok(result)
     }
 
+    pub const fn is_chunckable(&self)->bool 
+    {
+        match self.strategy {
+            ReadStrategy::Large | ReadStrategy::ExtraLarge => true,
+            _ => false
+        }
+    }
+
     pub async fn flush_data(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(), io::Error>
     {
         let dyn_reader = self.get_dyn_arc_reader(&self.inner)
         .map_err(|_|io::Error::new(io::ErrorKind::Other, "strategy can't handle reading"))?;
-        dyn_reader.flush(Mutex::new(buffers.to_vec())).await.map_err(|_|io::Error::new(io::ErrorKind::Other, "can't flush data"))?;
+        dyn_reader.flush(Mutex::new(buffers.to_vec()),self.chunck_number(self.as_ref().metadata()?.len() as usize)).await.map_err(|_|io::Error::new(io::ErrorKind::Other, "can't flush data"))?;
         Ok(())
     }
 
-    pub async fn use_accross_data<'callback>(&self,mut callback:impl AsyncFnMut(Arc<[u8]>))->Result<(), Box<dyn Error>>
-    {
-        let dyn_reader = self.get_dyn_arc_reader(&self.inner)?;
-        let mut rx = dyn_reader.use_across_file().await?;
 
-        let mut buffer = Vec::with_capacity(100);
-        rx.recv_many(&mut buffer, 100).await;
-        for chunck in buffer {
-            callback(chunck).await
-        }
-        Ok(())
+
+    pub async fn use_accross_data<'callback>(&'callback self)->Result<mpsc::Receiver<Arc<[u8]>>, io::Error>
+    {
+        let dyn_reader = self.get_dyn_arc_reader(&self.inner).map_err(|err|
+            io::Error::new(io::ErrorKind::Interrupted, err.to_string())
+        )?;
+        Ok(dyn_reader.use_across_file().await?)
     }
 
 }
-
-
-// pub type WriteSender = SplitSink<WebSocketStream<TcpStream>,Message>;
-// async fn a<'a>(path: &'a Path,read:&mut ReadSender){
-//     let file_async = FileAsyncReader::try_from(path).unwrap();
-//     file_async.use_accross_data(async |value |{
-//         read.next().await;
-
-//     }).await.unwrap();
-// }

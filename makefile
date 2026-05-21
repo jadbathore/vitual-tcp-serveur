@@ -6,7 +6,7 @@ TARGET_WASM=wasm32-unknown-unknown
 IMAGE=virtual-front-end
 CONTAINER_NAME=vfs-test
 #-----------utils-----------------
-VFS=../test/
+VFS=$(CURDIR)/test/
 ADDRESS="localhost:8080"
 ifeq ($(VM-CONTEXT),1)
 	ADDRESS="0.0.0.0:8080"
@@ -14,6 +14,8 @@ endif
 #-----------pre-cmd-----------------
 HOST_ARGS=cd virtualFile && VFS_DIR=$(VFS) ADDRESS=$(ADDRESS) RUST_BACKTRACE=1 
 #-----------build-------------------
+.PHONY: test
+
 build-lib:
 	cd communUtilsHandler && cargo build --release \
 	&& cd derive_utils && cargo build --release
