@@ -4,14 +4,14 @@ use std::{error::Error, ffi::OsStr, ops::Deref, path::Path, sync::Arc };
 use commun_utils_handler::fs_strategies::FileReader;
 // use fs_handler_wasi::commun_utils::{item::FileReader,read_strategies::ReadStrategy};
 
-use crate::structs::{
+use crate::{runtime::FakePath, structs::{
         async_strategies::FileAsyncReader, payloads::json_struct::JsonInfo 
-    };
+    }};
 
-pub trait ReaderStrategist where Self:AsRef<Path> {}
+pub trait ReaderStrategist where Self: Deref<Target = Path> {}
 
-impl ReaderStrategist for FileAsyncReader {}
-impl ReaderStrategist for FileReader {}
+impl<'path> ReaderStrategist for FileAsyncReader<FakePath> {}
+impl<'path> ReaderStrategist for FileReader<FakePath> {}
 
 
 #[derive(Debug)]
@@ -46,7 +46,7 @@ impl<R:ReaderStrategist> DataFile<R>
 {
     pub fn new(reader_strategy:R)->Result<Self,Box<dyn Error>>
     {
-        let mut path_buffer = reader_strategy.as_ref().to_path_buf();
+        let mut path_buffer = reader_strategy.to_path_buf();
         if Some(OsStr::new("index.qcow")) == path_buffer.file_name() {
             path_buffer.pop();
         }

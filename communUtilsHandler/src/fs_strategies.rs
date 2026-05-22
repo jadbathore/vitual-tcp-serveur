@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, path::Path, sync::Arc
+    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::Path, sync::Arc
 };
 
 use crate::errors::GlobalError;
@@ -7,7 +7,7 @@ use crate::errors::GlobalError;
 pub const MEDIUM_FILE: u64 = 64 * 1024;
 pub const LARGE_FILE: u64 = 10 * 1024 * 1024;
 pub const HUGE_FILE: u64 = 100 * 1024 * 1024;
-pub const GIGA_FILE: u64 = 1 * 1024 * 1024 * 1024; 
+pub const GIGA_FILE: u64 = 1 * 1024 * 1024 * 1024;
 
 pub const CHUNK_SMALL_SLICE:usize = 128 * 1024;
 pub const CHUNK_MEDIUM_SLICE:usize =  CHUNK_SMALL_SLICE * 2;
@@ -16,13 +16,13 @@ pub const CHUNK_MEDIUM_SLICE:usize =  CHUNK_SMALL_SLICE * 2;
 //----------------------------read-Strategies------------------------------
 //-------------------------------------------------------------------------
 
-pub trait TcpReaderStrategy where 
+pub trait TcpReaderStrategy where
     Self:AsRef<Path>
 {
 }
 
-pub trait ReadSyncStrategies<'callback,'buffers> 
-    where 
+pub trait ReadSyncStrategies<'callback,'buffers>
+    where
         Self:AsRef<Path>,
         'buffers:'callback
 {
@@ -49,7 +49,7 @@ impl<'cow> AsRef<Path> for SmaleSyncRead<'cow> {
 impl<'cow> SmaleSyncRead<'cow> {
     fn new(entry: &'cow Path) -> Self
     {
-        SmaleSyncRead {inner:Cow::from(entry)} 
+        SmaleSyncRead {inner:Cow::from(entry)}
     }
 }
 
@@ -73,7 +73,7 @@ impl<'cow> AsRef<Path> for MediumSyncRead<'cow> {
 }
 
 impl<'cow> MediumSyncRead<'cow> {
-    fn new(entry: &'cow Path) -> Result<Self, Box<dyn Error>> 
+    fn new(entry: &'cow Path) -> Result<Self, Box<dyn Error>>
     {
         let capacity = <u64 as TryInto<usize>>::try_into(entry.metadata()?.len()).map_err(|err|{
             GlobalError::from(err)
@@ -85,7 +85,7 @@ impl<'cow> MediumSyncRead<'cow> {
 impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for MediumSyncRead<'cow> where 'buffers:'cow {
     fn use_across_file(&self,mut callback:Box<dyn FnMut(Arc<[u8]>) + 'cow>)->Result<(),Box<dyn Error>> {
         let data = fs::File::open(&self.inner)?;
-        let mut sub_buf:Vec<u8> = Vec::with_capacity(self.capacity); 
+        let mut sub_buf:Vec<u8> = Vec::with_capacity(self.capacity);
         let mut reader = BufReader::new(data);
         reader.read_to_end(&mut sub_buf)?;
         callback(Arc::from(sub_buf));
@@ -99,9 +99,9 @@ struct ChunckSyncRead<'cow> {
 }
 
 impl<'cow> ChunckSyncRead<'cow> {
-    
+
     fn new(entry:&'cow Path,chunk_size:usize)->Self
-    { 
+    {
         ChunckSyncRead {inner: Cow::from(entry), chunck_size:chunk_size}
     }
 }
@@ -114,7 +114,7 @@ impl<'cow> AsRef<Path> for ChunckSyncRead<'cow> {
 
 impl<'cow,'buffers> ReadSyncStrategies<'cow,'buffers> for ChunckSyncRead<'cow> where 'buffers:'cow{
     fn use_across_file(&self,mut callback:Box<dyn FnMut(Arc<[u8]>) + 'cow>)->Result<(),Box<dyn Error>> {
-        let data = fs::File::open(&self.inner)?; 
+        let data = fs::File::open(&self.inner)?;
         let mut sub_capacity_buffer = vec![0;self.chunck_size];
         let mut reader = BufReader::new(data);
         loop {
@@ -140,7 +140,7 @@ pub enum ReadStrategy {
 impl<'buffer> TryFrom<&'buffer Path> for ReadStrategy {
     type Error = io::Error;
     fn try_from(entry: &'buffer Path) -> Result<Self,Self::Error> {
-        match entry.metadata()?.len() { 
+        match entry.metadata()?.len() {
             x if x <= MEDIUM_FILE => Ok(ReadStrategy::Smale),
             x if x <= LARGE_FILE => Ok(ReadStrategy::Medium),
             x if x <= HUGE_FILE => Ok(ReadStrategy::Large),
@@ -153,8 +153,8 @@ impl<'buffer> TryFrom<&'buffer Path> for ReadStrategy {
 
 // impl ReadStrategy {
 
-//     fn get_boxed_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>> 
-//         where 
+//     fn get_boxed_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>>
+//         where
 //             'buffer:'callback
 //     {
 //         let result:Box<dyn ReadSyncStrategies> = match &self {
@@ -172,9 +172,9 @@ pub fn get_entries(path:&Path)-> Result<Vec<DirEntry>,io::Error>
     fs::read_dir(path)?.collect()
 }
 
-pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Error>> 
-    where 
-        F: FnMut(&Path)-> Result<(), Box<dyn Error>> 
+pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Error>>
+    where
+        F: FnMut(&Path)-> Result<(), Box<dyn Error>>
 {
     for entry in get_entries(path)?.iter() {
         if entry.file_type()?.is_file() {
@@ -188,29 +188,29 @@ pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Err
 
 
 #[derive(Debug,Clone)]
-pub struct FileReader
+pub struct FileReader<P:AsRef<Path>>
 {
-    inner:Arc<Path>,
+    inner:Arc<P>,
     strategy:ReadStrategy
 }
 
-impl AsRef<Path> for FileReader {
-    fn as_ref(&self) -> &Path {
-        &self.inner
-    }
-}
+// impl<P:AsRef<Path>> AsRef<Path> for FileReader<P> {
+//     fn as_ref(&self) -> &Path {
+//         self.inner
+//     }
+// }
 
-impl<'a> TryFrom<&'a Path> for FileReader {
+// impl<T:AsRef<Path>> TryFrom<T> for FileReader {
 
-    type Error = Box<dyn Error>;
+//     type Error = Box<dyn Error>;
 
-    fn try_from(path: &'a Path) -> Result<Self, Self::Error> {
-        Ok(FileReader { 
-            inner: Arc::from(path), 
-            strategy: ReadStrategy::try_from(path)?
-        })
-    }
-}
+//     fn try_from(path:T) -> Result<Self, Self::Error> {
+//         Ok(FileReader {
+//             inner: Arc::from(path.as_ref()),
+//             strategy: ReadStrategy::try_from(path.as_ref())?
+//         })
+//     }
+// }
 
 
 // trait ReaderCallable {}
@@ -237,14 +237,44 @@ impl<'a> TryFrom<&'a Path> for FileReader {
 // }
 
 
-impl FileReader
+impl<P:AsRef<Path>> Deref for FileReader<P> {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_ref().as_ref()
+    }
+}
+
+impl<'a,P:AsRef<Path>> TryFrom<&'a Path> for FileReader<P> where Box<P>: From<&'a Path> {
+
+    type Error = Box<dyn Error>;
+
+    fn try_from(path:&'a Path) -> Result<Self, Self::Error> {
+
+        let a = Box::from(path);
+        Ok(FileReader {
+            inner: Arc::from(a),
+            strategy: ReadStrategy::try_from(path)?
+        })
+    }
+}
+
+
+
+impl<P:AsRef<Path>> FileReader<P>
 {
+
+    pub fn get_inner_path(&self)-> &P
+    {
+        &self.inner
+    }
+
     // pub fn get_string_lossy_url(&self)->Cow<'_, str>
     // {
     //     self.inner.to_string_lossy()
     // }
-    
-    pub fn get_strategy(&self)->&ReadStrategy 
+
+    pub fn get_strategy(&self)->&ReadStrategy
     {
         &self.strategy
     }
@@ -254,8 +284,8 @@ impl FileReader
     //     Ok(self.inner.metadata()?.len())
     // }
 
-    fn get_boxed_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>> 
-        where 
+    fn get_boxed_dyn_reader<'buffer,'callback>(&self,path:&'callback Path)->Result<Box<dyn ReadSyncStrategies<'callback,'buffer> + 'callback>,Box<dyn Error>>
+        where
             'buffer:'callback
     {
         let result:Box<dyn ReadSyncStrategies> = match self.strategy {
@@ -269,7 +299,7 @@ impl FileReader
 
     pub fn flush_data(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(), io::Error>
     {
-        let dyn_reader = self.get_boxed_dyn_reader(&self.inner)
+        let dyn_reader = self.get_boxed_dyn_reader(self)
         .map_err(|_|io::Error::new(io::ErrorKind::Other, "strategy can't handle reading"))?;
         dyn_reader.flush(buffers).map_err(|_|io::Error::new(io::ErrorKind::Other, "can't flush data"))?;
         Ok(())
@@ -277,7 +307,7 @@ impl FileReader
 
     pub fn use_accross_data(&self,mut_callback:impl FnMut(Arc<[u8]>))->Result<(), Box<dyn Error>>
     {
-        let dyn_reader = self.get_boxed_dyn_reader(&self.inner)?;
+        let dyn_reader = self.get_boxed_dyn_reader(self)?;
         dyn_reader.use_across_file(Box::new(mut_callback))?;
         Ok(())
     }

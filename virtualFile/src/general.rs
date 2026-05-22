@@ -35,6 +35,8 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 // #[cfg(feature = "deamon")]
 // use crate::structs::storage::storage_file;
 
+#[cfg(feature = "client")]
+use crate::runtime::FakePath;
 #[cfg(feature = "deamon")]
 use crate::structs::storage::storage_strategy;
 
@@ -45,7 +47,8 @@ use {
     },
     {
         tokio_tungstenite::tungstenite::Message,
-        std::sync::Arc,
+        std::{sync::Arc,path::Path,error::Error,ffi::OsString},
+        commun_utils_handler::fs_strategies::get_entries,
         futures::{stream::SplitSink,StreamExt, stream::SplitStream}
     }
 };
@@ -246,6 +249,24 @@ pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
         todo!()
     } 
 }
+
+#[cfg(feature = "client")]
+pub fn client_resolve_directories<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Error>> 
+    where 
+        F: FnMut(&Path)-> Result<(), Box<dyn Error>> 
+{
+    for entry in get_entries(path)?.iter() {
+        if entry.file_type()?.is_file() {
+            handler(entry.path().leak())?;
+        } else {
+            if let Some(index) = get_entries(&entry.path())?.into_iter().find(|file|{OsString::from("index.qcow") == file.file_name()}) {
+                handler(index.path().leak())?;
+            }
+        }
+    }
+    Ok(())
+}
+
 
 #[cfg(feature = "deamon")]
 pub async fn handle_deamon(stream:TcpStream)->Result<(),TungError>

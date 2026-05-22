@@ -2,7 +2,7 @@ use std::sync::Arc;
 use futures::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::{general::WriteSender, structs::{async_strategies::FileAsyncReader, payloads::payload::DataFile}};
+use crate::{general::WriteSender, runtime::FakePath, structs::{async_strategies::FileAsyncReader, payloads::payload::DataFile}};
 
 
 pub trait SearchableItem {}
@@ -10,7 +10,7 @@ pub trait SearchableItem {}
 pub type TcpItem = (&'static[Arc<[u8]>],Arc<String>);
 
 impl<'item> SearchableItem for TcpItem {}
-impl<'item> SearchableItem for &'item DataFile<FileAsyncReader> {}
+impl<'item> SearchableItem for &'item DataFile<FileAsyncReader<FakePath>> {}
 
 #[derive(Default,Debug)]
 pub struct IndexSliceHelper {

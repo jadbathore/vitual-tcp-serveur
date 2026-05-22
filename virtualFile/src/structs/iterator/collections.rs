@@ -5,7 +5,7 @@ use futures::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
 // use std::{ num::TryFromIntError,sync::OnceLock };
 
-use crate::{general::{Asset, WriteSender}, structs::async_strategies::FileAsyncReader};
+use crate::{general::{Asset, WriteSender}, runtime::FakePath, structs::async_strategies::FileAsyncReader};
 use crate::{ 
         CACHES, PAYLOADS, ASSETS,
         structs::{
@@ -66,13 +66,13 @@ async fn handle_writer<SI,I,S>(static_collection:&'static OnceLock<Arc<S>>,write
 
 pub struct PayloadCollection
 {
-    pub payloads:Vec<DataFile<FileAsyncReader>>,
+    pub payloads:Vec<DataFile<FileAsyncReader<FakePath>>>,
 }
 
-impl TryFrom<Vec<DataFile<FileAsyncReader>>> for PayloadCollection
+impl TryFrom<Vec<DataFile<FileAsyncReader<FakePath>>>> for PayloadCollection
 {
     type Error = Box<GlobalError>;
-    fn try_from(data_files: Vec<DataFile<FileAsyncReader>>) -> Result<Self,Self::Error> {
+    fn try_from(data_files: Vec<DataFile<FileAsyncReader<FakePath>>>) -> Result<Self,Self::Error> {
         if let Some(_) = PAYLOADS.get() {
             return Err(Box::new(GlobalError::SingleInstanceBreach));
         }
@@ -83,7 +83,7 @@ impl TryFrom<Vec<DataFile<FileAsyncReader>>> for PayloadCollection
 }
 
 impl StaticCollection for PayloadCollection {
-    type StaticElement = &'static DataFile<FileAsyncReader>;
+    type StaticElement = &'static DataFile<FileAsyncReader<FakePath>>;
 
     type Iter = StaticAssetIterator<PayloadCollection>;
 
@@ -106,9 +106,9 @@ pub struct CacheCollection
     // pub accesor:IndexSliceAccessor<String>
 }
 
-impl TryFrom<Vec<DataFile<FileReader>>> for CacheCollection {
+impl TryFrom<Vec<DataFile<FileReader<FakePath>>>> for CacheCollection {
     type Error = Box<GlobalError>;
-    fn try_from(data_files: Vec<DataFile<FileReader>>) -> Result<Self, Self::Error> {
+    fn try_from(data_files: Vec<DataFile<FileReader<FakePath>>>) -> Result<Self, Self::Error> {
         if let Some(_) = CACHES.get() {
             return Err(Box::new(GlobalError::SingleInstanceBreach));
         }
@@ -166,14 +166,13 @@ impl StaticAssetsCollection {
             hash_asset.insert(json_info.get_url(), Asset::Cache(index));
         });
         adding_accesor_asset(&PAYLOADS, &mut |index,item|{
-            hash_asset.insert(item.as_ref().to_string_lossy().to_string(), Asset::Payload(index));
+            hash_asset.insert(item.to_string_lossy().to_string(), Asset::Payload(index));
         });
         Ok(StaticAssetsCollection { accesor: hash_asset })
     }
 
     pub async fn search(&self,query:String,writer:&mut WriteSender) 
     {
-        
         if let Some(item) = self.accesor.get(&query) {
             match item {
                 Asset::Cache(i) => {
@@ -235,7 +234,7 @@ impl<T:StaticCollection + 'static> StaticAssetIterator<T>
 
 impl Iterator for  StaticAssetIterator<PayloadCollection>
 {
-    type Item = &'static DataFile<FileAsyncReader>;
+    type Item = &'static DataFile<FileAsyncReader<FakePath>>;
 
     fn next(&mut self) -> Option<Self::Item>
     {
@@ -287,7 +286,7 @@ impl PayloadSender for StaticAssetIterator<PayloadCollection>
         None
     }
 
-    async fn send_payload(&self,write:&mut WriteSender,item:&'static DataFile<FileAsyncReader>) {
+    async fn send_payload(&self,write:&mut WriteSender,item:&'static DataFile<FileAsyncReader<FakePath>>) {
         if let Ok(payload) = item.get_payload().stringify_to_json() {
             if item.is_chunckable() {
                 let mut buffers = Vec::new();
@@ -301,7 +300,6 @@ impl PayloadSender for StaticAssetIterator<PayloadCollection>
                     Err(err) => println!("flush error: {}",err.to_string())
                 }
             } else {
-                // TODO comprend pourquoi ça envoie Qu'un chunck 
                 match item.use_accross_data().await {
                     Ok(mut rx) => {
                         while let Some(buffer) = rx.recv().await {
@@ -312,22 +310,6 @@ impl PayloadSender for StaticAssetIterator<PayloadCollection>
                 };
             }
             // item.flush_data(&mut datas).await;
-        }
-
-
-
-        let mut datas:Vec<Arc<[u8]>> = Vec::new();
-
-        
-
-        if let (Ok(_),Ok(payload)) = (item.flush_data(&mut datas).await,item.get_payload().stringify_to_json())
-        {
-            let _ = write.send(Message::Text(payload)).await;
-            for data in datas {
-                let _ = write.send(Message::Binary(data.to_vec())).await;
-            }
-        } else {
-            println!("can't read data or send payload for:'{}'",item.as_ref().to_string_lossy())
         }
     }
 }

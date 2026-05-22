@@ -3,7 +3,7 @@ pub mod fs_strategies;
 pub mod collection;
 
 use colored::Colorize;
-use std::{collections::HashSet, error::Error,str::FromStr, sync::Arc};
+use std::{collections::HashSet, error::Error, path::Path, str::FromStr, sync::Arc};
 
 use regex::bytes::{Regex, RegexSet};
 
@@ -59,7 +59,7 @@ impl<'keys> ScanBytesSubject<'keys>
         Ok(ScanBytesSubject { regex_set: regex_set, regexes:regexes})
     }
 
-    pub fn scan_data<'file>(&mut self,file:FileReader)->Result<(),Box<dyn Error>>
+    pub fn scan_data<'file>(&mut self,file:FileReader<&Path>)->Result<(),Box<dyn Error>>
     {
         let mut buffers:Vec<Arc<[u8]>> = Vec::new();
         file.flush_data(&mut buffers)?;
@@ -74,10 +74,8 @@ impl<'keys> ScanBytesSubject<'keys>
                     set.insert(index);
                 }
             }
-            // set.extend(self.regex_set.matches(&data).iter().collect::<Vec<usize>>());
-
         }
-
+        
         let warn:Vec<&str> = set.iter().map(|i|{
             self.regexes[*i].get_warn()
         }).collect();
@@ -86,12 +84,12 @@ impl<'keys> ScanBytesSubject<'keys>
             if CAP_ERROR < warn_score {
                 let msg = 
                 String::from("A suspicious file ") +
-                &file.as_ref().to_string_lossy() + 
+                &file.get_inner_path().to_string_lossy() + 
                 " prevents the program from functioning(\"" +
                 &warn.join("\",\"") + "\")";
                 panic!("{}: {}","error".bold().red(),msg.red());
             }
-            println!("{}:{}(\"{}\")","warning".yellow().bold(),file.as_ref().to_string_lossy().yellow(),warn.join("\",\""));
+            println!("{}:{}(\"{}\")","warning".yellow().bold(),file.get_inner_path().to_string_lossy().yellow(),warn.join("\",\""));
         }
         Ok(())
     }

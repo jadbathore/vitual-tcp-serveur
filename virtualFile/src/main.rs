@@ -1,6 +1,3 @@
-
-
-
 use std::{env, error::Error, path::PathBuf, sync::OnceLock};
 
 use lazy_static::lazy_static;
@@ -9,17 +6,15 @@ mod general;
 mod structs;
 mod general_macros;
 mod traits;
+mod runtime;
 use colored::Colorize;
 use commun_utils_handler::errors::GlobalError;
 use tokio::{net::TcpListener, runtime::Runtime};
 
-
-
-
 #[cfg(feature = "client")]
 use {
     crate::{
-        general::handle_client,
+        general::{handle_client,client_resolve_directories},
         structs::{
             iterator::collections::{CacheCollection,PayloadCollection,StaticAssetsCollection},
             payloads::payload::DataFile,
@@ -33,12 +28,12 @@ use {
 use crate::general::handle_deamon;
 
 #[cfg(feature = "client")]
-use crate::structs::async_strategies::FileAsyncReader;
+use crate::{runtime::FakePath, structs::async_strategies::FileAsyncReader};
 use crate::structs::builder::wasi::build_wasi_call;
 
 
 #[cfg(feature = "client")]
-use commun_utils_handler::fs_strategies::{FileReader, recursive_file_read};
+use commun_utils_handler::fs_strategies::FileReader;
 
 lazy_static!(
     static ref VFS_DIR:OnceLock<PathBuf> = OnceLock::new();
@@ -77,21 +72,22 @@ fn set_env_var()->Result<(), Box<dyn Error>>
     }
 }
 
-
 #[cfg(feature = "client")]
 fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
 {
     if let Some(path) = vfs_path {
-        let mut data_to_payload:Vec<DataFile<FileAsyncReader>> = Vec::new();
-        let mut data_to_cache:Vec<DataFile<FileReader>> = Vec::new();
+        let mut data_to_payload:Vec<DataFile<FileAsyncReader<FakePath>>> = Vec::new();
+        let mut data_to_cache:Vec<DataFile<FileReader<FakePath>>> = Vec::new();
         let mut predicator:PredicatorCache = PredicatorCache::default();
-        recursive_file_read(path,&mut |path| {
-            // let datafile = DataFile::new(file)?;
+        client_resolve_directories(path,&mut |fake_path|{
             let size:u64 = path.metadata().iter().len().try_into()?;
             if predicator.predicate_cache_use(size) {
-                data_to_cache.push(DataFile::new(FileReader::try_from(path)?)?);
+                let file_sync_reader:FileReader<FakePath> = fake_path.try_into()?;
+                
+                data_to_cache.push(DataFile::new(file_sync_reader)?);
             } else {
-                data_to_payload.push(DataFile::new(FileAsyncReader::try_from(path)?)?);
+                let file_async_reader:FileAsyncReader<FakePath> = fake_path.try_into()?;
+                data_to_payload.push(DataFile::new(file_async_reader)?);
             }
             Ok(())
         }).map_err(|_|{Box::new(GlobalError::NotExistingDir(path.to_string_lossy().to_string()))})?;
@@ -114,13 +110,6 @@ fn format_message(str:&str)
     println!("\t{}",blankfiller);
 
 }
-
-// fn a(){
-
-//     tokio::fs::File::open(path)
-//     // tokio::fs::File::create_new("");
-// }
-
 
 fn main()->Result<(),Box<dyn Error>> 
 {

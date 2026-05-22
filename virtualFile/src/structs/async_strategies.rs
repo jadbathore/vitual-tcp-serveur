@@ -1,5 +1,5 @@
 use std::{
-    error::Error, io ,path::Path, sync::Arc
+    error::Error, io, ops::Deref, path::Path, sync::Arc
 };
 use commun_utils_handler::{
     errors::GlobalError,
@@ -150,26 +150,35 @@ impl ReadAsyncStrategies for ChunckAsyncRead {
 
 
 #[derive(Debug,Clone)]
-pub struct FileAsyncReader
+pub struct FileAsyncReader<P:AsRef<Path>>
 {
-    inner:Arc<Path>,
+    inner:Arc<P>,
     strategy:ReadStrategy
 }
 
-impl AsRef<Path> for FileAsyncReader {
-    fn as_ref(&self) -> &Path {
-        &self.inner
+// impl<> AsRef<Path> for FileAsyncReader<P> {
+//     fn as_ref(&self) -> &Path {
+//         &self.inner
+//     }
+// }
+
+impl<P:AsRef<Path>> Deref for FileAsyncReader<P> {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_ref().as_ref()
     }
 }
 
 
-impl<'a> TryFrom<&'a Path> for FileAsyncReader {
+impl<'path,P:AsRef<Path>> TryFrom<&'path Path> for FileAsyncReader<P> where Box<P>: From<&'path Path> {
 
     type Error = Box<dyn Error>;
 
-    fn try_from(path: &'a Path) -> Result<Self, Self::Error> {
+    fn try_from(path:&'path Path) -> Result<Self, Self::Error> {
+        let a = Box::from(path);
         Ok(FileAsyncReader { 
-            inner: Arc::from(path), 
+            inner: Arc::from(a), 
             strategy: ReadStrategy::try_from(path)?
         })
     }
@@ -178,9 +187,8 @@ impl<'a> TryFrom<&'a Path> for FileAsyncReader {
 
 
 
-impl FileAsyncReader
+impl<P:AsRef<Path>> FileAsyncReader<P>
 {
-
     const fn chunck_number(&self,size:usize)->usize {
         match self.strategy {
             ReadStrategy::Smale|ReadStrategy::Medium => 1,
@@ -209,9 +217,9 @@ impl FileAsyncReader
 
     pub async fn flush_data(&self,buffers:&mut Vec<Arc<[u8]>>)->Result<(), io::Error>
     {
-        let dyn_reader = self.get_dyn_arc_reader(&self.inner)
+        let dyn_reader = self.get_dyn_arc_reader(self)
         .map_err(|_|io::Error::new(io::ErrorKind::Other, "strategy can't handle reading"))?;
-        dyn_reader.flush(Mutex::new(buffers.to_vec()),self.chunck_number(self.as_ref().metadata()?.len() as usize)).await.map_err(|_|io::Error::new(io::ErrorKind::Other, "can't flush data"))?;
+        dyn_reader.flush(Mutex::new(buffers.to_vec()),self.chunck_number(self.metadata()?.len() as usize)).await.map_err(|_|io::Error::new(io::ErrorKind::Other, "can't flush data"))?;
         Ok(())
     }
 
@@ -219,7 +227,7 @@ impl FileAsyncReader
 
     pub async fn use_accross_data<'callback>(&'callback self)->Result<mpsc::Receiver<Arc<[u8]>>, io::Error>
     {
-        let dyn_reader = self.get_dyn_arc_reader(&self.inner).map_err(|err|
+        let dyn_reader = self.get_dyn_arc_reader(self).map_err(|err|
             io::Error::new(io::ErrorKind::Interrupted, err.to_string())
         )?;
         Ok(dyn_reader.use_across_file().await?)

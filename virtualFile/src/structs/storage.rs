@@ -4,10 +4,7 @@ use std::{
     sync::Arc
 };
 use futures::io;
-use tokio::{
-    fs::{self,File},
-    // task::JoinHandle
-}; 
+use tokio::fs::{self,File}; 
 
 use commun_utils_handler::fs_strategies::LARGE_FILE;
 
@@ -59,15 +56,6 @@ struct HashContainerFile {
     parent: Arc<Path>
 }
 
-// impl<'file> HashContainerFile<'file> {
-//     async fn file_creation(&self)->Result<File, std::io::Error>
-//     {
-//         fs::create_dir(self).await?;
-//         let mut data_qcow = self.as_ref().to_path_buf();
-//         data_qcow.push("index.qcow");
-//         File::create_new(data_qcow).await
-//     }
-// }
 impl<'path> From<&'path Path> for HashContainerFile {
     fn from(value: &'path Path) -> Self{
         HashContainerFile { parent: Arc::from(value) }
@@ -111,3 +99,5 @@ pub async fn storage_strategy<'path>(path:&'path Path,predicate:usize)->Result<F
     let storage_type:Arc<dyn StorageStrategies> = get_dyn_storage_strategy(path, predicate);
     storage_type.init_data_storage().await 
 }
+
+
