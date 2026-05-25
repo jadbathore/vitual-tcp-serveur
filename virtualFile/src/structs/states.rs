@@ -47,7 +47,6 @@ pub struct PredicatorCache {
 impl PredicatorCache {
     pub const fn predicate_cache_use(&mut self,size:u64)->bool
     {   
-        
         if size <= MEDIUM_FILE {
             let condition = CACHE_CAP > (size + self.cache_use);
             if condition {

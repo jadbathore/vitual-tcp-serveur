@@ -2,7 +2,8 @@ use std::sync::Arc;
 use futures::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::{general::WriteSender, runtime::FakePath, structs::{async_strategies::FileAsyncReader, payloads::payload::DataFile}};
+use crate::{general::WriteSender, runtime::FakeToSubPath, structs::{async_strategies::FileAsyncReader, payloads::payload::DataFile}};
+
 
 
 pub trait SearchableItem {}
@@ -10,7 +11,7 @@ pub trait SearchableItem {}
 pub type TcpItem = (&'static[Arc<[u8]>],Arc<String>);
 
 impl<'item> SearchableItem for TcpItem {}
-impl<'item> SearchableItem for &'item DataFile<FileAsyncReader<FakePath>> {}
+impl<'item> SearchableItem for &'item DataFile<FileAsyncReader<FakeToSubPath>> {}
 
 #[derive(Default,Debug)]
 pub struct IndexSliceHelper {
@@ -61,33 +62,3 @@ pub trait StaticCollection {
     fn iter(&'static self)-> Box<Self::Iter>;
     fn length(&self)->usize;
 }
-
-// pub trait SingleToneInstanceCollection where Self: Default + 'static
-// {
-//     type Initializer;
-//     const INSTANCE:&'static OnceLock<Arc<Self>>;
-
-//     fn new(&self,instance:Self::Initializer)->Result<PhantomData<Self::Initializer>,GlobalError>;
-
-//     fn init_from(&self,instance:Self::Initializer)->Result<&Self,GlobalError>
-//     {
-//         if let Some(_) = Self::INSTANCE.get() {
-//             return Err(GlobalError::SingleInstanceBreach);
-//         }
-//         let a = self.new(instance)?;
-//         Ok(&self)
-//     }
-// }
-
-// impl SingleToneInstanceCollection for PayloadCollection {
-//     type Initializer = Vec<DataFile>;
-//     const INSTANCE:&'static OnceLock<Arc<Self>> = &PAYLOADS;
-
-//     fn new(&self,initializer:Self::Initializer)->Result<PhantomData<Self::Initializer>,GlobalError> {
-//         let a = Self {
-//             payloads: initializer,
-//             ressource_type:PhantomData
-//         };
-//         Ok(a.ressource_type)
-//     }
-// }

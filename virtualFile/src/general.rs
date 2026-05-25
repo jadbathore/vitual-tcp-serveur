@@ -35,8 +35,7 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 // #[cfg(feature = "deamon")]
 // use crate::structs::storage::storage_file;
 
-#[cfg(feature = "client")]
-use crate::runtime::FakePath;
+
 #[cfg(feature = "deamon")]
 use crate::structs::storage::storage_strategy;
 
@@ -245,15 +244,14 @@ pub async fn handle_client(stream:TcpStream,assets:&Arc<StaticAssetsCollection>)
         let (mut write,mut read) = ws.split(); 
         stream_navigator.resolve_protocol(assets,&mut write,&mut read).await;
     } else {
-
         todo!()
     } 
 }
 
 #[cfg(feature = "client")]
-pub fn client_resolve_directories<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Error>> 
+pub fn client_resolve_directories<'usage,F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Error>> 
     where 
-        F: FnMut(&Path)-> Result<(), Box<dyn Error>> 
+        F: FnMut(&'usage Path)-> Result<(), Box<dyn Error>>
 {
     for entry in get_entries(path)?.iter() {
         if entry.file_type()?.is_file() {

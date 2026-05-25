@@ -1,5 +1,5 @@
 use std::{
-    error::Error, io, ops::Deref, path::Path, sync::Arc
+    error::Error, fmt::Debug, io, ops::Deref, path::{Path, PathBuf}, sync::Arc
 };
 use commun_utils_handler::{
     errors::GlobalError,
@@ -176,19 +176,43 @@ impl<'path,P:AsRef<Path>> TryFrom<&'path Path> for FileAsyncReader<P> where Box<
     type Error = Box<dyn Error>;
 
     fn try_from(path:&'path Path) -> Result<Self, Self::Error> {
-        let a = Box::from(path);
         Ok(FileAsyncReader { 
-            inner: Arc::from(a), 
+            inner: Arc::from(Box::from(path)), 
             strategy: ReadStrategy::try_from(path)?
+        })
+    }
+}
+
+impl<'path,P:AsRef<Path>> TryFrom<PathBuf> for FileAsyncReader<P> where Box<P>: From<PathBuf> {
+
+    type Error = Box<dyn Error>;
+
+    fn try_from(path:PathBuf) -> Result<Self, Self::Error> {
+
+        let bind:Arc<P> = Arc::from(Box::from(path.clone())); 
+        Ok(FileAsyncReader { 
+            inner: Arc::from(bind), 
+            strategy: ReadStrategy::try_from(path.as_path())?
         })
     }
 }
 
 
 
-
-impl<P:AsRef<Path>> FileAsyncReader<P>
+impl<P:AsRef<Path>> FileAsyncReader<P> where P:Debug
 {
+
+    pub fn debug(&self){
+        let dyn_reader = self.get_dyn_arc_reader(self)
+        .map_err(|_|io::Error::new(io::ErrorKind::Other, "strategy can't handle reading")).unwrap();
+        
+    }
+
+    pub fn get_inner_path(&self)-> &P
+    {
+        &self.inner
+    }
+    
     const fn chunck_number(&self,size:usize)->usize {
         match self.strategy {
             ReadStrategy::Smale|ReadStrategy::Medium => 1,
@@ -198,6 +222,7 @@ impl<P:AsRef<Path>> FileAsyncReader<P>
     }
 
     fn get_dyn_arc_reader<'callback>(&self,path:&'callback Path)->Result<Arc<dyn ReadAsyncStrategies + 'callback>,Box<dyn Error>> {
+        dbg!(path);
         let result:Arc<dyn ReadAsyncStrategies + 'callback> = match &self.strategy {
             ReadStrategy::Smale => Arc::from(SmaleAsyncRead::new( &path)),
             ReadStrategy::Medium => Arc::from(MediumAsyncRead::new(&path)?),

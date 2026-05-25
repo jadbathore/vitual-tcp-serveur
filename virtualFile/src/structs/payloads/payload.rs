@@ -4,14 +4,14 @@ use std::{error::Error, ffi::OsStr, ops::Deref, path::Path, sync::Arc };
 use commun_utils_handler::fs_strategies::FileReader;
 // use fs_handler_wasi::commun_utils::{item::FileReader,read_strategies::ReadStrategy};
 
-use crate::{runtime::FakePath, structs::{
+use crate::{runtime::FakeToSubPath, structs::{
         async_strategies::FileAsyncReader, payloads::json_struct::JsonInfo 
     }};
 
 pub trait ReaderStrategist where Self: Deref<Target = Path> {}
 
-impl<'path> ReaderStrategist for FileAsyncReader<FakePath> {}
-impl<'path> ReaderStrategist for FileReader<FakePath> {}
+impl<'path> ReaderStrategist for FileAsyncReader<FakeToSubPath> {}
+impl<'path> ReaderStrategist for FileReader<FakeToSubPath> {}
 
 
 #[derive(Debug)]

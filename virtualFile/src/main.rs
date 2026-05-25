@@ -28,8 +28,8 @@ use {
 use crate::general::handle_deamon;
 
 #[cfg(feature = "client")]
-use crate::{runtime::FakePath, structs::async_strategies::FileAsyncReader};
-use crate::structs::builder::wasi::build_wasi_call;
+use crate::{runtime::FakeToSubPath, structs::{async_strategies::FileAsyncReader, iterator::utils::StaticCollection}};
+use crate::structs::{builder::wasi::build_wasi_call};
 
 
 #[cfg(feature = "client")]
@@ -76,23 +76,19 @@ fn set_env_var()->Result<(), Box<dyn Error>>
 fn set_payload_variable(vfs_path:Option<&PathBuf>)->Result<(), Box<GlobalError>>
 {
     if let Some(path) = vfs_path {
-        let mut data_to_payload:Vec<DataFile<FileAsyncReader<FakePath>>> = Vec::new();
-        let mut data_to_cache:Vec<DataFile<FileReader<FakePath>>> = Vec::new();
+        let mut data_to_payload:Vec<DataFile<FileAsyncReader<FakeToSubPath>>> = Vec::new();
+        let mut data_to_cache:Vec<DataFile<FileReader<FakeToSubPath>>> = Vec::new();
         let mut predicator:PredicatorCache = PredicatorCache::default();
         client_resolve_directories(path,&mut |fake_path|{
-            let size:u64 = path.metadata().iter().len().try_into()?;
-            if predicator.predicate_cache_use(size) {
-                let file_sync_reader:FileReader<FakePath> = fake_path.try_into()?;
-                
-                data_to_cache.push(DataFile::new(file_sync_reader)?);
+            if predicator.predicate_cache_use(fake_path.metadata()?.len()) { 
+                data_to_cache.push(DataFile::new(fake_path.try_into()?)?);
             } else {
-                let file_async_reader:FileAsyncReader<FakePath> = fake_path.try_into()?;
-                data_to_payload.push(DataFile::new(file_async_reader)?);
+                data_to_payload.push(DataFile::new(fake_path.to_path_buf().try_into()?)?);
             }
             Ok(())
         }).map_err(|_|{Box::new(GlobalError::NotExistingDir(path.to_string_lossy().to_string()))})?;
-        let payload = PayloadCollection::try_from(data_to_payload)?;
-        let cache = CacheCollection::try_from(data_to_cache)?;
+        let payload:PayloadCollection = PayloadCollection::try_from(data_to_payload)?;
+        let cache:CacheCollection = CacheCollection::try_from(data_to_cache)?;
         PAYLOADS.set(Arc::from(payload)).map_err(error_handle_set_oncelock)?;
         CACHES.set(Arc::from(cache)).map_err(error_handle_set_oncelock)?;
         ASSETS.set(Arc::from(StaticAssetsCollection::new()?)).map_err(error_handle_set_oncelock)?;
@@ -104,7 +100,6 @@ fn format_message(str:&str)
 {
     let size_to_center = 4 + str.len();
     let blankfiller = " ".repeat(size_to_center).on_green();
-
     println!("\n\t{}",blankfiller);
     println!("\t{:^size_to_center$}",str.white().bold().on_green());
     println!("\t{}",blankfiller);
@@ -123,17 +118,27 @@ fn main()->Result<(),Box<dyn Error>>
     #[cfg(feature = "client")]
     {
         set_payload_variable(VFS_DIR.get())?;
-        if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
-            Runtime::new()?.block_on(async {
-                let listener = TcpListener::bind(addr).await.unwrap();
-                format_message(&("client-websocket on ".to_owned() + addr));
-                while let Ok((stream, socket_addr)) = listener.accept().await {
-                    tokio::spawn(handle_client(stream,assets));
-                    let time = time::OffsetDateTime::now_utc();
-                    println!("data sended at {time} to {}",socket_addr.to_string().green());
-                }
-            });
-        }  
+         let a = PAYLOADS.get().unwrap();
+        for b in a.iter() {
+            b.debug();
+
+            // Runtime::new()?.block_on(async {
+            //     b.flush_data(&mut vector).await.unwrap();
+            //     dbg!(vector);
+            // });
+        } 
+
+        // if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
+        //     Runtime::new()?.block_on(async {
+        //         let listener = TcpListener::bind(addr).await.unwrap();
+        //         format_message(&("client-websocket on ".to_owned() + addr));
+        //         while let Ok((stream, socket_addr)) = listener.accept().await {
+        //             tokio::spawn(handle_client(stream,assets));
+        //             let time = time::OffsetDateTime::now_utc();
+        //             println!("data sended at {time} to {}",socket_addr.to_string().green());
+        //         }
+        //     });
+        // }  
     }
 
     #[cfg(feature = "deamon")]

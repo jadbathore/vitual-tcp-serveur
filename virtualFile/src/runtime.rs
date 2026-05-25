@@ -1,35 +1,37 @@
 use std::path::{Path, PathBuf};
 
-#[derive(Default)]
-pub struct FakePath {
+// use crate::structs::{async_strategies::FileAsyncReader, payloads::payload::ReaderStrategist};
+
+
+
+#[derive(Debug)]
+pub struct FakeToSubPath {
     inner:PathBuf,
     fake:Option<PathBuf>
 }
 
 
-impl<'path> AsRef<Path> for FakePath {
+impl<'path> AsRef<Path> for FakeToSubPath {
     fn as_ref(&self) -> &Path {
         &self.inner
     }
 }
 
-impl <'path> From<&'path Path> for Box<FakePath> {
+impl <'path> From<&'path Path> for Box<FakeToSubPath> {
     fn from(value: &'path Path) -> Self {
-        Box::new(FakePath { inner: value.to_path_buf(), fake: None })
+        Box::new(FakeToSubPath { inner: value.to_path_buf(), fake: None })
     }
 }
 
-// impl<'path> From<&'path Path> for FakePath {
-//     fn from(value: &'path Path) -> Self {
-//         FakePath { inner: value.to_path_buf(), fake: None }
-//     }
-// }
-
-impl FakePath {
-
-    pub fn set_fake(&mut self,path:PathBuf){
-        self.fake = Some(path);
+impl From<PathBuf> for Box<FakeToSubPath> {
+    fn from(value: PathBuf) -> Self {   
+        let mut sub  = value.clone();
+        sub.pop();
+        Box::new(FakeToSubPath { inner: value , fake: Some(sub) })
     }
+}
+
+impl FakeToSubPath {
 
     pub fn get_link<'path>(&'path self)->&'path Path 
     {

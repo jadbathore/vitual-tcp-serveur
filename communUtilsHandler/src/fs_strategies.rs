@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::Path, sync::Arc
+    borrow::Cow, error::Error, fs::{self, DirEntry}, io::{self, BufReader, Read}, ops::Deref, path::{Path, PathBuf}, sync::Arc
 };
 
 use crate::errors::GlobalError;
@@ -245,21 +245,32 @@ impl<P:AsRef<Path>> Deref for FileReader<P> {
     }
 }
 
-impl<'a,P:AsRef<Path>> TryFrom<&'a Path> for FileReader<P> where Box<P>: From<&'a Path> {
+
+impl<'path,P:AsRef<Path>> TryFrom<&'path Path> for FileReader<P> where Box<P>: From<&'path Path> {
 
     type Error = Box<dyn Error>;
 
-    fn try_from(path:&'a Path) -> Result<Self, Self::Error> {
-
-        let a = Box::from(path);
-        Ok(FileReader {
-            inner: Arc::from(a),
+    fn try_from(path:&'path Path) -> Result<Self, Self::Error> {
+        Ok(FileReader { 
+            inner: Arc::from(Box::from(path)), 
             strategy: ReadStrategy::try_from(path)?
         })
     }
 }
 
+impl<'path,P:AsRef<Path>> TryFrom<PathBuf> for FileReader<P> where Box<P>: From<PathBuf> {
 
+    type Error = Box<dyn Error>;
+
+    fn try_from(path:PathBuf) -> Result<Self, Self::Error> {
+
+        let bind:Arc<P> =  Arc::from(Box::from(path.clone())); 
+        Ok(FileReader { 
+            inner: Arc::from(bind), 
+            strategy: ReadStrategy::try_from(path.as_path())?
+        })
+    }
+}
 
 impl<P:AsRef<Path>> FileReader<P>
 {

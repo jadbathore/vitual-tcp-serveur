@@ -1,11 +1,11 @@
-use std::{ collections::HashMap, sync::{Arc, OnceLock}};
+use std::{ collections::HashMap, fmt::Debug, sync::{Arc, OnceLock}};
 use colored::Colorize;
 use commun_utils_handler::{errors::GlobalError, fs_strategies::FileReader};
 use futures::SinkExt;
 use tokio_tungstenite::tungstenite::Message;
 // use std::{ num::TryFromIntError,sync::OnceLock };
 
-use crate::{general::{Asset, WriteSender}, runtime::FakePath, structs::async_strategies::FileAsyncReader};
+use crate::{general::{Asset, WriteSender}, runtime::FakeToSubPath, structs::async_strategies::FileAsyncReader};
 use crate::{ 
         CACHES, PAYLOADS, ASSETS,
         structs::{
@@ -53,7 +53,7 @@ async fn handle_writer<SI,I,S>(static_collection:&'static OnceLock<Arc<S>>,write
     where   
         SI:SearchableItem,
         I:PayloadSender<Item = SI>,
-        S:StaticCollection<Iter = I> + 'static
+        S:StaticCollection<Iter = I> + 'static + Debug
 {
     if let Some(collection) = static_collection.get() {
         collection.iter().write_splitsink(writer).await;
@@ -64,15 +64,16 @@ async fn handle_writer<SI,I,S>(static_collection:&'static OnceLock<Arc<S>>,write
 //--------------------- static collection assets ----------------------------
 //---------------------------------------------------------------------------
 
+#[derive(Debug)]
 pub struct PayloadCollection
 {
-    pub payloads:Vec<DataFile<FileAsyncReader<FakePath>>>,
+    pub payloads:Vec<DataFile<FileAsyncReader<FakeToSubPath>>>,
 }
 
-impl TryFrom<Vec<DataFile<FileAsyncReader<FakePath>>>> for PayloadCollection
+impl TryFrom<Vec<DataFile<FileAsyncReader<FakeToSubPath>>>> for PayloadCollection
 {
     type Error = Box<GlobalError>;
-    fn try_from(data_files: Vec<DataFile<FileAsyncReader<FakePath>>>) -> Result<Self,Self::Error> {
+    fn try_from(data_files: Vec<DataFile<FileAsyncReader<FakeToSubPath>>>) -> Result<Self,Self::Error> {
         if let Some(_) = PAYLOADS.get() {
             return Err(Box::new(GlobalError::SingleInstanceBreach));
         }
@@ -83,7 +84,7 @@ impl TryFrom<Vec<DataFile<FileAsyncReader<FakePath>>>> for PayloadCollection
 }
 
 impl StaticCollection for PayloadCollection {
-    type StaticElement = &'static DataFile<FileAsyncReader<FakePath>>;
+    type StaticElement = &'static DataFile<FileAsyncReader<FakeToSubPath>>;
 
     type Iter = StaticAssetIterator<PayloadCollection>;
 
@@ -106,9 +107,9 @@ pub struct CacheCollection
     // pub accesor:IndexSliceAccessor<String>
 }
 
-impl TryFrom<Vec<DataFile<FileReader<FakePath>>>> for CacheCollection {
+impl TryFrom<Vec<DataFile<FileReader<FakeToSubPath>>>> for CacheCollection {
     type Error = Box<GlobalError>;
-    fn try_from(data_files: Vec<DataFile<FileReader<FakePath>>>) -> Result<Self, Self::Error> {
+    fn try_from(data_files: Vec<DataFile<FileReader<FakeToSubPath>>>) -> Result<Self, Self::Error> {
         if let Some(_) = CACHES.get() {
             return Err(Box::new(GlobalError::SingleInstanceBreach));
         }
@@ -166,7 +167,8 @@ impl StaticAssetsCollection {
             hash_asset.insert(json_info.get_url(), Asset::Cache(index));
         });
         adding_accesor_asset(&PAYLOADS, &mut |index,item|{
-            hash_asset.insert(item.to_string_lossy().to_string(), Asset::Payload(index));
+            let inner = item.get_inner_path();
+            hash_asset.insert(inner.get_link().to_string_lossy().to_string(), Asset::Payload(index));
         });
         Ok(StaticAssetsCollection { accesor: hash_asset })
     }
@@ -189,6 +191,7 @@ impl StaticAssetsCollection {
 
     pub async fn write_all(&self,writer:&mut WriteSender)
     {
+
         handle_writer(&PAYLOADS, writer).await;
         handle_writer(&CACHES, writer).await;
         self.end_com(writer).await;
@@ -234,7 +237,7 @@ impl<T:StaticCollection + 'static> StaticAssetIterator<T>
 
 impl Iterator for  StaticAssetIterator<PayloadCollection>
 {
-    type Item = &'static DataFile<FileAsyncReader<FakePath>>;
+    type Item = &'static DataFile<FileAsyncReader<FakeToSubPath>>;
 
     fn next(&mut self) -> Option<Self::Item>
     {
@@ -286,12 +289,13 @@ impl PayloadSender for StaticAssetIterator<PayloadCollection>
         None
     }
 
-    async fn send_payload(&self,write:&mut WriteSender,item:&'static DataFile<FileAsyncReader<FakePath>>) {
+    async fn send_payload(&self,write:&mut WriteSender,item:&'static DataFile<FileAsyncReader<FakeToSubPath>>) {
         if let Ok(payload) = item.get_payload().stringify_to_json() {
             if item.is_chunckable() {
                 let mut buffers = Vec::new();
                 match item.flush_data(&mut buffers).await {
                     Ok(()) => {
+                        
                         let _ = write.send(Message::Text(payload)).await;
                         for buffer in buffers {
                             let _ = write.send(Message::Binary(buffer.to_vec())).await;
