@@ -19,12 +19,12 @@ impl<R:ReaderStrategist<RefPath = FakeToSubPath>> TryFromReader<R> for JsonInfo 
 
     fn try_from_reader(path:&R)->Result<Self,Self::Error> 
     {
-        let ext =  path.extension().and_then(|a|{
+        let inner = path.get_inner_path().get_link();
+        let ext =  inner.extension().and_then(|a|{
             a.to_str()
         }).unwrap_or("");
-        let cow_path = path.get_inner_path().get_link().to_string_lossy();
         Ok(JsonInfo { 
-            url: cow_path.to_string(),
+            url: inner.to_string_lossy().to_string(),
             chunks:path.chunck_number()?,
             type_file: ext.to_string()
         })
