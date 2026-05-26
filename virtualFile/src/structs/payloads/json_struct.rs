@@ -1,57 +1,37 @@
-use std::{error::Error, path::Path};
+use std::error::Error;
 
 use serde::{Serialize,Deserialize};
 use commun_utils_handler::{
-    errors::GlobalError,
-    fs_strategies::{CHUNK_MEDIUM_SLICE, CHUNK_SMALL_SLICE, GIGA_FILE, HUGE_FILE, LARGE_FILE}
+    errors::GlobalError
 };
+
+use crate::{runtime::FakeToSubPath, structs::payloads::payload::{ReaderStrategist, TryFromReader}};
 
 #[derive(Deserialize,Serialize, Debug)]
 pub struct JsonInfo {
     url: String,
-    size:u64,
     chunks:usize,
     type_file:String,
 }
 
-impl JsonInfo {
-    pub fn new(path:&Path)->Result<Self,Box<dyn Error>>
+impl<R:ReaderStrategist<RefPath = FakeToSubPath>> TryFromReader<R> for JsonInfo {
+    type Error = Box<dyn Error>;
+
+    fn try_from_reader(path:&R)->Result<Self,Self::Error> 
     {
         let ext =  path.extension().and_then(|a|{
             a.to_str()
         }).unwrap_or("");
-        let size = path.metadata()?.len();
-        let chunck= <u64 as TryInto<usize>>::try_into(
-            match size {
-                // x if x >= MEDIUM_FILE => ,
-                x if x <= LARGE_FILE =>  1 ,
-                x if x <= HUGE_FILE => x / CHUNK_SMALL_SLICE as u64,
-                x if x <= GIGA_FILE  => x / CHUNK_MEDIUM_SLICE as u64,
-                _ => 0
-            }
-        ).map_err(|err|{
-            GlobalError::from(err)
-        })?;
-        if let Some(a) = path.to_str() {
-            Ok(JsonInfo { 
-                url: a.to_string(),
-                chunks:chunck,
-                size: size,
-                type_file: ext.to_string()
-            })
-            // let a= a.to_os_string();
-        } else {
-            Err(Box::new(GlobalError::UninitializedVariable))
-        }
-        // // let path = ;
-        // Ok(JsonInfo
-        // { 
-        //     url:path.file_name(),
-        //     chunks:size,
-        //     size:path.metadata()?.len(),
-        //     type_file: Cow::from(ext)
-        // })
+        let cow_path = path.get_inner_path().get_link().to_string_lossy();
+        Ok(JsonInfo { 
+            url: cow_path.to_string(),
+            chunks:path.chunck_number()?,
+            type_file: ext.to_string()
+        })
     }
+}
+
+impl JsonInfo {
     
     pub fn stringify_to_json(&self)->Result<String,Box<GlobalError>>
     {

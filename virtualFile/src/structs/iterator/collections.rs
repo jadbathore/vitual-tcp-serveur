@@ -11,10 +11,9 @@ use crate::{
         structs::{
             builder::wasi::build_wasi_call, 
             iterator::utils::{ IndexSliceHelper, PayloadCloser, PayloadSender, SearchableItem, StaticCollection, TcpItem}, 
-            payloads::{json_struct::JsonInfo, payload::DataFile}
+            payloads::{ json_struct::JsonInfo, payload::{DataFile,ReaderStrategist} }
         }
     };
-
 //---------------------------------------------------------------------------
 //-------------------------   utils function   ------------------------------
 //---------------------------------------------------------------------------
@@ -291,12 +290,11 @@ impl PayloadSender for StaticAssetIterator<PayloadCollection>
 
     async fn send_payload(&self,write:&mut WriteSender,item:&'static DataFile<FileAsyncReader<FakeToSubPath>>) {
         if let Ok(payload) = item.get_payload().stringify_to_json() {
+            let _ = write.send(Message::Text(payload)).await;
             if item.is_chunckable() {
                 let mut buffers = Vec::new();
                 match item.flush_data(&mut buffers).await {
                     Ok(()) => {
-                        
-                        let _ = write.send(Message::Text(payload)).await;
                         for buffer in buffers {
                             let _ = write.send(Message::Binary(buffer.to_vec())).await;
                         }
@@ -306,6 +304,7 @@ impl PayloadSender for StaticAssetIterator<PayloadCollection>
             } else {
                 match item.use_accross_data().await {
                     Ok(mut rx) => {
+                        
                         while let Some(buffer) = rx.recv().await {
                             let _ = write.send(Message::Binary(buffer.to_vec())).await;
                         }

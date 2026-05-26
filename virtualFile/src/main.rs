@@ -28,7 +28,7 @@ use {
 use crate::general::handle_deamon;
 
 #[cfg(feature = "client")]
-use crate::{runtime::FakeToSubPath, structs::{async_strategies::FileAsyncReader, iterator::utils::StaticCollection}};
+use crate::{runtime::FakeToSubPath, structs::{async_strategies::FileAsyncReader}};
 use crate::structs::{builder::wasi::build_wasi_call};
 
 
@@ -118,27 +118,17 @@ fn main()->Result<(),Box<dyn Error>>
     #[cfg(feature = "client")]
     {
         set_payload_variable(VFS_DIR.get())?;
-         let a = PAYLOADS.get().unwrap();
-        for b in a.iter() {
-            b.debug();
-
-            // Runtime::new()?.block_on(async {
-            //     b.flush_data(&mut vector).await.unwrap();
-            //     dbg!(vector);
-            // });
-        } 
-
-        // if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
-        //     Runtime::new()?.block_on(async {
-        //         let listener = TcpListener::bind(addr).await.unwrap();
-        //         format_message(&("client-websocket on ".to_owned() + addr));
-        //         while let Ok((stream, socket_addr)) = listener.accept().await {
-        //             tokio::spawn(handle_client(stream,assets));
-        //             let time = time::OffsetDateTime::now_utc();
-        //             println!("data sended at {time} to {}",socket_addr.to_string().green());
-        //         }
-        //     });
-        // }  
+        if let (Some(assets),Some(addr)) = (ASSETS.get(),ADDRESS.get()) {
+            Runtime::new()?.block_on(async {
+                let listener = TcpListener::bind(addr).await.unwrap();
+                format_message(&("client-websocket on ".to_owned() + addr));
+                while let Ok((stream, socket_addr)) = listener.accept().await {
+                    tokio::spawn(handle_client(stream,assets));
+                    let time = time::OffsetDateTime::now_utc();
+                    println!("data sended at {time} to {}",socket_addr.to_string().green());
+                }
+            });
+        }  
     }
 
     #[cfg(feature = "deamon")]

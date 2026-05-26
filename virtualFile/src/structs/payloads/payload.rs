@@ -1,18 +1,45 @@
 #[cfg(feature = "deamon")]
 use std::path::PathBuf;
-use std::{error::Error, ffi::OsStr, ops::Deref, path::Path, sync::Arc };
-use commun_utils_handler::fs_strategies::FileReader;
+use std::{error::Error, fmt::Debug, ops::Deref, path::Path, sync::Arc };
+use commun_utils_handler::{errors::GlobalError, fs_strategies::{CHUNK_MEDIUM_SLICE, CHUNK_SMALL_SLICE, FileReader, ReadStrategy}};
+
 // use fs_handler_wasi::commun_utils::{item::FileReader,read_strategies::ReadStrategy};
 
-use crate::{runtime::FakeToSubPath, structs::{
-        async_strategies::FileAsyncReader, payloads::json_struct::JsonInfo 
-    }};
+use crate::{
+    runtime::FakeToSubPath, 
+    structs::payloads::json_struct::{JsonInfo}
+};
 
-pub trait ReaderStrategist where Self: Deref<Target = Path> {}
+pub trait ReaderStrategist where Self: Deref<Target = Path> + AsRef<ReadStrategy> {
 
-impl<'path> ReaderStrategist for FileAsyncReader<FakeToSubPath> {}
-impl<'path> ReaderStrategist for FileReader<FakeToSubPath> {}
+    type RefPath:AsRef<Path>;
+    
+    fn get_inner_path(&self)-> &Self::RefPath;
 
+    fn chunck_number(&self)->Result<usize,Box<GlobalError>> {
+        match self.as_ref() {
+            ReadStrategy::Smale|ReadStrategy::Medium => Ok(1),
+            ReadStrategy::Large => Ok(self.metadata()?.len() as usize /CHUNK_SMALL_SLICE),
+            ReadStrategy::ExtraLarge => Ok(self.metadata()?.len() as usize /CHUNK_MEDIUM_SLICE)
+        }
+    }
+}
+
+pub trait TryFromReader<R:ReaderStrategist> where Self: Sized {
+    type Error;
+    fn try_from_reader(value:&R)->Result<Self,Self::Error>;
+}
+
+
+
+
+impl<'path,P:AsRef<Path>> ReaderStrategist for FileReader<P> {
+    type RefPath = P;
+
+    fn get_inner_path(&self)-> &Self::RefPath {
+        self.get_inner_path()
+    }
+}
 
 #[derive(Debug)]
 pub struct DataFile<R:ReaderStrategist>
@@ -21,40 +48,17 @@ pub struct DataFile<R:ReaderStrategist>
     payload:Arc<JsonInfo>,
 }
 
-// impl<T:ReaderStrategist> Into<T> for Path {
-//     fn into(&self) -> T {
-//         T::from(self)
-//     }
-// } 
-
-// impl<'path,R:ReaderStrategist> TryFrom<&'path Path> for DataFile<R> {
-//     type Error = io::Error;
-
-//     fn try_from(value: &'path Path)->Result<Self,Self::Error>
-//     {
-//         Ok(
-//             DataFile { parent: value.into(), payload: Arc::new(JsonInfo::new(value)?) }
-//         )
-//         // parent:file
-//     }
-// }
-
-
-
-
-impl<R:ReaderStrategist> DataFile<R>
+impl<R:ReaderStrategist<RefPath = FakeToSubPath>> DataFile<R>
 {
     pub fn new(reader_strategy:R)->Result<Self,Box<dyn Error>>
     {
-        let mut path_buffer = reader_strategy.to_path_buf();
-        if Some(OsStr::new("index.qcow")) == path_buffer.file_name() {
-            path_buffer.pop();
-        }
+        let json = JsonInfo::try_from_reader(&reader_strategy)?;
         Ok(DataFile { 
             parent: reader_strategy,
-            payload: Arc::new(JsonInfo::new(path_buffer.as_path())?),
+            payload: Arc::new(json),
         })
     }
+
     pub fn get_payload(&self)-> Arc<JsonInfo>
     {
         self.payload.clone()
@@ -68,15 +72,3 @@ impl<R:ReaderStrategist> Deref for DataFile<R> {
         &self.parent
     }
 }
-
-
-
-// #[derive(Debug)]
-// pub struct CloudFile
-// {
-//     inner:Arc<Path>,
-//     payload:Arc<JsonInfo>,
-// }
-
-
-

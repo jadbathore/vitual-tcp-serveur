@@ -9,7 +9,7 @@ pub const LARGE_FILE: u64 = 10 * 1024 * 1024;
 pub const HUGE_FILE: u64 = 100 * 1024 * 1024;
 pub const GIGA_FILE: u64 = 1 * 1024 * 1024 * 1024;
 
-pub const CHUNK_SMALL_SLICE:usize = 128 * 1024;
+pub const CHUNK_SMALL_SLICE:usize = 1 * 1024 * 1024;
 pub const CHUNK_MEDIUM_SLICE:usize =  CHUNK_SMALL_SLICE * 2;
 
 //-------------------------------------------------------------------------
@@ -272,6 +272,12 @@ impl<'path,P:AsRef<Path>> TryFrom<PathBuf> for FileReader<P> where Box<P>: From<
     }
 }
 
+impl<P:AsRef<Path>> AsRef<ReadStrategy> for FileReader<P> {
+    fn as_ref(&self) -> &ReadStrategy {
+        &self.strategy
+    }
+}
+
 impl<P:AsRef<Path>> FileReader<P>
 {
 
@@ -284,11 +290,6 @@ impl<P:AsRef<Path>> FileReader<P>
     // {
     //     self.inner.to_string_lossy()
     // }
-
-    pub fn get_strategy(&self)->&ReadStrategy
-    {
-        &self.strategy
-    }
 
     // pub fn size(&self)->Result<u64,io::Error>
     // {
