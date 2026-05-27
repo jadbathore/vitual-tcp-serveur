@@ -5,6 +5,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+boa_engine = "0.21.1"
 
 commun_utils_handler = {path = "../communUtilsHandler/"}
 derive_utils = {path = "../communUtilsHandler/derive_utils/"}

@@ -172,9 +172,9 @@ pub fn get_entries(path:&Path)-> Result<Vec<DirEntry>,io::Error>
     fs::read_dir(path)?.collect()
 }
 
-pub fn recursive_file_read<F>(path:&Path,handler:&mut F)->Result<(), Box<dyn Error>>
+pub fn recursive_file_read<'a,F>(path:&'a Path,handler:&mut F)->Result<(), Box<dyn Error>>
     where
-        F: FnMut(&Path)-> Result<(), Box<dyn Error>>
+        F: FnMut(&'a Path)-> Result<(), Box<dyn Error>>
 {
     for entry in get_entries(path)?.iter() {
         if entry.file_type()?.is_file() {

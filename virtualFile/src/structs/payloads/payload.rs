@@ -31,8 +31,6 @@ pub trait TryFromReader<R:ReaderStrategist> where Self: Sized {
 }
 
 
-
-
 impl<'path,P:AsRef<Path>> ReaderStrategist for FileReader<P> {
     type RefPath = P;
 

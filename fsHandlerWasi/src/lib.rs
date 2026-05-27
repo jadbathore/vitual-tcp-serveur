@@ -10,7 +10,7 @@ use std::path::Path;
 use crate::utils::lexer::{MalwareWarnRaiseApp, MalwareWarnRaiseImg};
 use indicatif::ProgressBar;
 struct Component;
-
+use boa_engine::{Context, Source};
 
 
 // fn build_preopendir_collection(filter:bool)->Result<ReadCollection<(PathBuf,ReadStrategy)>,Box<dyn Error>>
@@ -27,7 +27,7 @@ struct Component;
 // }
 
 
-fn scan(files:Vec<FileReader>,scanner:&mut ScanBytesSubject)
+fn scan(files:Vec<FileReader<&Path>>,scanner:&mut ScanBytesSubject)
 {
     let progress_bar_application = ProgressBar::new(files.len() as u64);
     for file in files {
@@ -43,8 +43,8 @@ impl Guest for Component {
 
     fn ta0043()
     {
-        let mut image_files:Vec<FileReader> = Vec::new();
-        let mut application_files:Vec<FileReader> = Vec::new();
+        let mut image_files:Vec<FileReader<&Path>> = Vec::new();
+        let mut application_files:Vec<FileReader<&Path>> = Vec::new();
         recursive_file_read(Path::new("./fs"), &mut |path| {
             if Regex::new(r"(?i)\.(((c|m)?js)|wasm)").unwrap().is_match(&path.to_string_lossy()) {
                 application_files.push(FileReader::try_from(path).unwrap());
@@ -59,8 +59,20 @@ impl Guest for Component {
         scan(application_files,&mut  MalwareWarnRaiseApp::scanner());
     }
 
-    fn exec_utils(_:String) -> () {
-        
+    fn exec_utils(js_code:String)-> String {
+        let mut context = Context::default();
+
+        // Parse the source code
+        match context.eval(Source::from_bytes(&js_code)) {
+            Ok(res) => {
+                res.to_string(&mut context).unwrap().to_std_string_escaped()
+            }
+            Err(e) => {
+                // Pretty print the error
+                eprintln!("Uncaught {e}");
+                String::new()
+            }
+        }
     }
 }
 

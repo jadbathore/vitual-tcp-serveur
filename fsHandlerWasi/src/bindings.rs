@@ -9,15 +9,30 @@ pub unsafe fn _export_ta0043_cabi<T: Guest>() {
 }
 #[doc(hidden)]
 #[allow(non_snake_case)]
-pub unsafe fn _export_exec_utils_cabi<T: Guest>(arg0: *mut u8, arg1: usize) {
+pub unsafe fn _export_exec_utils_cabi<T: Guest>(arg0: *mut u8, arg1: usize) -> *mut u8 {
     #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
     let len0 = arg1;
     let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
-    T::exec_utils(_rt::string_lift(bytes0));
+    let result1 = T::exec_utils(_rt::string_lift(bytes0));
+    let ptr2 = (&raw mut _RET_AREA.0).cast::<u8>();
+    let vec3 = (result1.into_bytes()).into_boxed_slice();
+    let ptr3 = vec3.as_ptr().cast::<u8>();
+    let len3 = vec3.len();
+    ::core::mem::forget(vec3);
+    *ptr2.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len3;
+    *ptr2.add(0).cast::<*mut u8>() = ptr3.cast_mut();
+    ptr2
+}
+#[doc(hidden)]
+#[allow(non_snake_case)]
+pub unsafe fn __post_return_exec_utils<T: Guest>(arg0: *mut u8) {
+    let l0 = *arg0.add(0).cast::<*mut u8>();
+    let l1 = *arg0.add(::core::mem::size_of::<*const u8>()).cast::<usize>();
+    _rt::cabi_dealloc(l0, l1, 1);
 }
 pub trait Guest {
     fn ta0043() -> ();
-    fn exec_utils(command: _rt::String) -> ();
+    fn exec_utils(command: _rt::String) -> _rt::String;
 }
 #[doc(hidden)]
 macro_rules! __export_world_example_cabi {
@@ -25,12 +40,21 @@ macro_rules! __export_world_example_cabi {
         const _ : () = { #[unsafe (export_name = "TA0043")] unsafe extern "C" fn
         export_ta0043() { unsafe { $($path_to_types)*:: _export_ta0043_cabi::<$ty > () }
         } #[unsafe (export_name = "exec-utils")] unsafe extern "C" fn
-        export_exec_utils(arg0 : * mut u8, arg1 : usize,) { unsafe { $($path_to_types)*::
-        _export_exec_utils_cabi::<$ty > (arg0, arg1) } } };
+        export_exec_utils(arg0 : * mut u8, arg1 : usize,) -> * mut u8 { unsafe {
+        $($path_to_types)*:: _export_exec_utils_cabi::<$ty > (arg0, arg1) } } #[unsafe
+        (export_name = "cabi_post_exec-utils")] unsafe extern "C" fn
+        _post_return_exec_utils(arg0 : * mut u8,) { unsafe { $($path_to_types)*::
+        __post_return_exec_utils::<$ty > (arg0) } } };
     };
 }
 #[doc(hidden)]
 pub(crate) use __export_world_example_cabi;
+#[cfg_attr(target_pointer_width = "64", repr(align(8)))]
+#[cfg_attr(target_pointer_width = "32", repr(align(4)))]
+struct _RetArea([::core::mem::MaybeUninit<u8>; 2 * ::core::mem::size_of::<*const u8>()]);
+static mut _RET_AREA: _RetArea = _RetArea(
+    [::core::mem::MaybeUninit::uninit(); 2 * ::core::mem::size_of::<*const u8>()],
+);
 #[rustfmt::skip]
 mod _rt {
     #![allow(dead_code, clippy::all)]
@@ -46,8 +70,16 @@ mod _rt {
             String::from_utf8_unchecked(bytes)
         }
     }
+    pub unsafe fn cabi_dealloc(ptr: *mut u8, size: usize, align: usize) {
+        if size == 0 {
+            return;
+        }
+        let layout = alloc::Layout::from_size_align_unchecked(size, align);
+        alloc::dealloc(ptr, layout);
+    }
     pub use alloc_crate::string::String;
     extern crate alloc as alloc_crate;
+    pub use alloc_crate::alloc;
 }
 /// Generates `#[unsafe(no_mangle)]` functions to export the specified type as
 /// the root implementation of all generated traits.
@@ -86,10 +118,10 @@ pub(crate) use __export_example_impl as export;
 #[allow(clippy::octal_escapes)]
 pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 214] = *b"\
 \0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07Y\x01A\x02\x01A\x04\x01\
-@\0\x01\0\x04\0\x06TA0043\x01\0\x01@\x01\x07commands\x01\0\x04\0\x0aexec-utils\x01\
-\x01\x04\0!component:fs-handler-wasi/example\x04\0\x0b\x0d\x01\0\x07example\x03\0\
-\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bi\
-ndgen-rust\x060.41.0";
+@\0\x01\0\x04\0\x06TA0043\x01\0\x01@\x01\x07commands\0s\x04\0\x0aexec-utils\x01\x01\
+\x04\0!component:fs-handler-wasi/example\x04\0\x0b\x0d\x01\0\x07example\x03\0\0\0\
+G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindge\
+n-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {
