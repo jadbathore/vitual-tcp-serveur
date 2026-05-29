@@ -9,6 +9,8 @@
 
 use std::{pin::Pin, sync::OnceLock, vec};
 
+#[cfg(feature = "client")]
+use futures::SinkExt;
 #[cfg(feature = "deamon")]
 use futures::{StreamExt, stream::SplitStream};
 // #[cfg(feature = "deamon")]
@@ -36,6 +38,8 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 // use crate::structs::storage::storage_file;
 
 
+#[cfg(feature = "client")]
+use crate::structs::builder::wasi::build_wasi_call;
 #[cfg(feature = "deamon")]
 use crate::structs::storage::storage_strategy;
 
@@ -222,7 +226,8 @@ impl NavigatorProtocols<Protocols> {
                 Protocols::ExecJS => {
                     if let Some( message) = read.next().await {
                         let query = message.unwrap_or(Message::binary(Vec::new())).into_text().unwrap_or(String::from(""));
-                        assets.exec(query, write).await;
+                        let (code,) = build_wasi_call::<(String,),(String,)>((query,), "exec-utils").unwrap();
+                        let _ = write.send(Message::text(code)).await;
                     }
                 }
             }

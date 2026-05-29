@@ -14,7 +14,7 @@ endif
 #-----------pre-cmd-----------------
 HOST_ARGS=cd virtualFile && VFS_DIR=$(VFS) ADDRESS=$(ADDRESS) RUST_BACKTRACE=1 
 #-----------build-------------------
-.PHONY: test
+
 
 build-lib:
 	cd communUtilsHandler && cargo build --release \

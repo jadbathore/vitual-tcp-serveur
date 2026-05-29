@@ -195,11 +195,6 @@ impl StaticAssetsCollection {
         handle_writer(&CACHES, writer).await;
         self.end_com(writer).await;
     }
-
-    pub async fn exec(&self,command:String,_:&mut WriteSender)
-    {
-        build_wasi_call::<(String,),()>((command,), "exec-utils").unwrap();
-    }
 }
 
 

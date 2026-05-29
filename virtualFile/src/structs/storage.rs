@@ -1,5 +1,4 @@
 use std::{
-    // borrow::Cow, 
     path::{Path,PathBuf}, 
     sync::Arc
 };
@@ -17,10 +16,10 @@ pub trait StorageStrategies where Self:AsRef<Path>
 }
 
 //-------------------------------------------------------------------------
+
 struct NormalFile { 
     parent: Arc<Path>
 }
-
 
 impl<'path> From<&'path Path> for NormalFile {
     fn from(value: &'path Path) -> Self {
@@ -101,3 +100,7 @@ pub async fn storage_strategy<'path>(path:&'path Path,predicate:usize)->Result<F
 }
 
 
+
+
+
+//-------------------------------------------------------------------------

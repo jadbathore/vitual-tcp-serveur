@@ -29,7 +29,7 @@ use crate::general::handle_deamon;
 
 #[cfg(feature = "client")]
 use crate::{runtime::FakeToSubPath, structs::{async_strategies::FileAsyncReader}};
-use crate::structs::{builder::wasi::build_wasi_call};
+// use crate::structs::{builder::wasi::build_wasi_call};
 
 
 #[cfg(feature = "client")]
@@ -110,10 +110,10 @@ fn main()->Result<(),Box<dyn Error>>
 {
     set_env_var()?;
 
-    build_wasi_call::<(),()>((), "TA0043").map_err(|_|{
-        println!("{}",GlobalError::WasiError);
-        GlobalError::WasiError
-    })?;
+    // build_wasi_call::<(),()>((), "TA0043").map_err(|_|{
+    //     println!("{}",GlobalError::WasiError);
+    //     GlobalError::WasiError
+    // })?;
 
     #[cfg(feature = "client")]
     {
