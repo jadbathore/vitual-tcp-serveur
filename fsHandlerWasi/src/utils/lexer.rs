@@ -5,7 +5,7 @@ use commun_utils_handler::{FileScanner,ScanBytesSubject};
 #[allow(warnings)]
 #[derive(FileScanner)]
 pub enum MalwareWarnRaiseApp {
-     #[regex(r#"fetch|XMLHttpRequest|axios|WebSocket|EventSource|navigator\.sendBeacon|postMessage|onmessage|addEventListener[(].message.[)]"#)]
+    #[regex(r#"fetch|XMLHttpRequest|axios|WebSocket|EventSource|navigator\.sendBeacon|postMessage|onmessage|addEventListener[(].message.[)]"#)]
     NetworkAccess,
     
     #[regex(r#"https?://|wss?://|/?api/?|/?upload/?|/?[A-z0-9\._]\w+\.php/?|/?beacon/?|/?socket/?|callback=|token=|session=|jwt"#)]

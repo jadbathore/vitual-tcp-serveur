@@ -30,6 +30,7 @@
     regex = "1.12.3"
     blake3 = { version = "1.8.5", optional = true }
     zstd = "0.13.3"
+mongodb = "3.7.0"
 
 [features]
     client = []

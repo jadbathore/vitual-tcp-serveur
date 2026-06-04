@@ -246,6 +246,7 @@ impl<P:AsRef<Path>> Deref for FileReader<P> {
 }
 
 
+
 impl<'path,P:AsRef<Path>> TryFrom<&'path Path> for FileReader<P> where Box<P>: From<&'path Path> {
 
     type Error = Box<dyn Error>;
@@ -277,6 +278,8 @@ impl<P:AsRef<Path>> AsRef<ReadStrategy> for FileReader<P> {
         &self.strategy
     }
 }
+
+
 
 impl<P:AsRef<Path>> FileReader<P>
 {

@@ -39,7 +39,7 @@ init: build-lib build-wasi run
 bind:
 	cd fsHandlerWasi && cargo component bindings 
 #-----------run---------------------
-run-client:
+run-client: 
 	$(HOST_ARGS)cargo run --features client
 
 run-deamon:

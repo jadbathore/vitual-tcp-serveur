@@ -15,7 +15,8 @@ pub enum GlobalError {
     SingleInstanceBreach,
     StringEnumInit(String),
     IoError(String),
-    InitError(String)
+    InitError(String),
+    Other(String)
 }
 
 impl fmt::Display for GlobalError {
@@ -30,7 +31,10 @@ impl fmt::Display for GlobalError {
             GlobalError::WasiError => "Something went wrong during the runing of a wasi component.",
             GlobalError::SingleInstanceBreach => "instance cannot be duplicated.",
             GlobalError::StringEnumInit(variante) => &("variante enum: ".to_owned() + variante + "doesn't exist."),
-            GlobalError::ParseError(string) | GlobalError::IoError(string) | GlobalError::InitError(string) => string,
+            GlobalError::ParseError(string) 
+            | GlobalError::IoError(string) |
+            GlobalError::InitError(string) | 
+            Self::Other(string) => string,
             
         };
         f.write_str(&description.red().bold().to_string())
