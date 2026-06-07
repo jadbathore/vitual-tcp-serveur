@@ -32,7 +32,7 @@ impl fmt::Display for GlobalError {
             GlobalError::SingleInstanceBreach => "instance cannot be duplicated.",
             GlobalError::StringEnumInit(variante) => &("variante enum: ".to_owned() + variante + "doesn't exist."),
             GlobalError::ParseError(string) 
-            | GlobalError::IoError(string) |
+            |GlobalError::IoError(string) |
             GlobalError::InitError(string) | 
             Self::Other(string) => string,
             
@@ -48,6 +48,7 @@ impl From<std::io::Error> for Box<GlobalError> {
         Box::new(GlobalError::IoError(value.kind().to_string()))
     }
 }
+
 
 impl From<std::num::TryFromIntError> for GlobalError {
     fn from(_: std::num::TryFromIntError) -> Self {

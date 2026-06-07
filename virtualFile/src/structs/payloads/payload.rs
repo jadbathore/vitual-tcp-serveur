@@ -5,10 +5,11 @@ use commun_utils_handler::{errors::GlobalError, fs_strategies::{CHUNK_MEDIUM_SLI
 
 // use fs_handler_wasi::commun_utils::{item::FileReader,read_strategies::ReadStrategy};
 
-use crate::{
-    runtime::FakeToSubPath, 
-    structs::payloads::json_struct::{JsonInfo}
-};
+use crate::{runtime::FakeToSubPath};
+
+#[cfg(feature = "client")]
+use crate::structs::payloads::json_struct::{JsonInfo};
+
 
 pub trait ReaderStrategist where Self: Deref<Target = Path> + AsRef<ReadStrategy> {
 
@@ -39,6 +40,8 @@ impl<'path,P:AsRef<Path>> ReaderStrategist for FileReader<P> {
     }
 }
 
+
+#[cfg(feature = "client")]
 #[derive(Debug)]
 pub struct DataFile<R:ReaderStrategist>
 {
@@ -46,6 +49,7 @@ pub struct DataFile<R:ReaderStrategist>
     payload:Arc<JsonInfo>,
 }
 
+#[cfg(feature = "client")]
 impl<R:ReaderStrategist<RefPath = FakeToSubPath>> DataFile<R>
 {
     pub fn new(reader_strategy:R)->Result<Self,Box<dyn Error>>
@@ -63,6 +67,7 @@ impl<R:ReaderStrategist<RefPath = FakeToSubPath>> DataFile<R>
     }
 }
 
+#[cfg(feature = "client")]
 impl<R:ReaderStrategist> Deref for DataFile<R> {
     type Target = R;
 

@@ -7,6 +7,8 @@
 //     futures::stream::SplitSink,
 // };
 
+#[cfg(feature = "deamon")]
+use std::sync::Arc;
 use std::{pin::Pin, sync::OnceLock, vec};
 
 #[cfg(feature = "client")]
@@ -17,7 +19,7 @@ use futures::{StreamExt, stream::SplitStream};
 // use regex::Regex;
 
 #[cfg(feature = "deamon")]
-use tokio::io::AsyncWriteExt;
+use tokio::{fs::{self, File}, io::AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use derive_utils::IterableStringifyEnum;
@@ -27,6 +29,7 @@ use commun_utils_handler::IterableStringifyEnum;
 
 
 use tokio_tungstenite::{WebSocketStream, accept_hdr_async, tungstenite::{ 
+        error::UrlError,
         handshake::{client::Request, server::ErrorResponse}, http::{HeaderValue, Response}
     }
 };
@@ -41,7 +44,7 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 #[cfg(feature = "client")]
 use crate::structs::builder::wasi::build_wasi_call;
 #[cfg(feature = "deamon")]
-use crate::structs::storage::storage_strategy;
+use crate::{runtime::FakeToSubPath, structs::{async_strategies::FileAsyncReader, storage::{HashData, StorageStrategy}}};
 
 #[cfg(feature = "client")]
 use {
@@ -82,7 +85,10 @@ pub enum Protocols {
 #[cfg(feature = "deamon")]
 #[derive(IterableStringifyEnum,Debug)]
 pub enum CommandProtocols {
+   #[into("file")]
     AddFile,
+    #[into("version")]
+    AddVersionFile,
     AddExecutable,
 }
 
@@ -151,9 +157,11 @@ impl NavigatorProtocols<CommandProtocols>
     {
         if let Some(protocol) = self.protocols.get() {
             match protocol {
+                CommandProtocols::AddVersionFile => {
+
+                },
                 CommandProtocols::AddFile => {
                     if let (Some(Ok(path_name)),Some(Ok(size))) = (read.next().await,read.next().await) {
-
                         let mut sub_new_file:String = path_name.into_text()?;
                         let regexes = [r"\.+\/",r"\/"," "];
                         let regex_set = RegexSet::new(regexes).map_err(|_| TungError::Utf8)?;
@@ -166,34 +174,44 @@ impl NavigatorProtocols<CommandProtocols>
                             let regex = Regex::new(regexes[index]).unwrap();
                             sub_new_file = regex.replace_all(&sub_new_file, replacement).to_string();
                         }
-                        
-                        let predicate_size = usize::from_str(&size.into_text()?).map_err(|_|TungError::Utf8)?;
 
+                        let predicate_size = usize::from_str(&size.into_text()?).map_err(|_|TungError::Utf8)?;
                         if let Some(vfs ) = VFS_DIR.get() {
                             let mut path_file:PathBuf = PathBuf::from(vfs);
                             path_file.extend(&PathBuf::from(sub_new_file));
-                            // let path = path_file.as_path();
-                            // tokio::spawn(storage_strategy(path_file.as_path(), predicate_size));
-                            // let mut  a = storage_strategy(path_file.as_path(), predicate_size).await.map_err(|_|TungError::Url(UrlError::UnsupportedUrlScheme)).await??;
-                            let mut a = storage_strategy(&path_file, predicate_size).await?;
-                            while let Some(Ok(data)) = read.next().await {
-                                let _ = a.write(data.into_data().as_slice()).await;
+                            // let mut file:File;
+                            // let mut file = storage_strategy(&path_file, predicate_size).await?;
+
+                            let dyn_storage_strategy = StorageStrategy::new(&path_file, predicate_size);
+                            let mut file = dyn_storage_strategy.storage_strategy().await?;
+
+                            if fs::try_exists(&path_file).await? {
+                                let binding = path_file.as_path();
+                                let async_reader:FileAsyncReader<FakeToSubPath> = FileAsyncReader::try_from(binding).map_err(|_|{
+                                    TungError::Url(UrlError::UnsupportedUrlScheme)
+                                })?;
+                                let mut buffers:Vec<Arc<[u8]>> = Vec::new();
+                                async_reader.flush_data(&mut buffers).await?;
+                                let mut iter_buffers = buffers.iter();
+                                while let Some(Ok(data)) = read.next().await {
+                                    if let Some(old_data) =  iter_buffers.next() {
+                                        let hash_old  = blake3::hash(&old_data);
+                                        let bind_new_data = data.into_data();
+                                        let hash_new = blake3::hash(&bind_new_data);
+                                        if hash_new != hash_old {
+                                            let hash_file = HashData::new(bind_new_data, hash_new);
+                                            dyn_storage_strategy.versionning(&mut file, hash_file);
+                                        }
+                                    } 
+                                }
+                            } else {
+                                while let Some(Ok(data)) = read.next().await {
+                                    let _ = file.write(data.into_data().as_slice()).await;
+                                }
                             }
                             
-                        // dbg!(path_file);
-                            // let buffer = Vec::new();
-                            // while let Some(Ok(chunck)) = read.next().await {
-                            //     let data_chunck = chunck.into_data();
-                            // }
-                            // storage_gestion(&path_file, buffers);
+                            
                         } 
-                        // let a = path_name.into_text()?.as_str();
-                        
-
-                        // while let Some(Ok(chunck)) = read.next().await {
-                        //     let data_chunck = chunck.into_data();
-                        //     chunck_count += 0;
-                        // }
                     }
 
                     // storage_gestion(path, buffers)
