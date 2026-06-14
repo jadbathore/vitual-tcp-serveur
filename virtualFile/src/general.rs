@@ -44,7 +44,7 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 #[cfg(feature = "client")]
 use crate::structs::builder::wasi::build_wasi_call;
 #[cfg(feature = "deamon")]
-use crate::{runtime::FakeToSubPath, structs::{async_strategies::FileAsyncReader, storage::{HashData, StorageStrategy}}};
+use crate::{runtime::FakeToSubPath, structs::{async_strategies::FileAsyncReader, storage::{HashData, StorageStrategy, StorageType}}};
 
 #[cfg(feature = "client")]
 use {
@@ -182,8 +182,9 @@ impl NavigatorProtocols<CommandProtocols>
                             // let mut file:File;
                             // let mut file = storage_strategy(&path_file, predicate_size).await?;
 
-                            let dyn_storage_strategy = StorageStrategy::new(&path_file, predicate_size);
-                            let mut file = dyn_storage_strategy.storage_strategy().await?;
+                            let storage_strategy:StorageStrategy = <StorageType as Into<StorageStrategy>>::into(StorageType::from(predicate_size));
+                            let dyn_storage_strategies = storage_strategy.get_dyn_storage_strategy(&path_file).await;
+                            let mut file = dyn_storage_strategies.clone().init_data_storage().await?;
 
                             if fs::try_exists(&path_file).await? {
                                 let binding = path_file.as_path();
@@ -200,7 +201,7 @@ impl NavigatorProtocols<CommandProtocols>
                                         let hash_new = blake3::hash(&bind_new_data);
                                         if hash_new != hash_old {
                                             let hash_file = HashData::new(bind_new_data, hash_new);
-                                            dyn_storage_strategy.versionning(&mut file, hash_file);
+                                            dyn_storage_strategies.clone().versionning(&mut file, hash_file);
                                         }
                                     } 
                                 }

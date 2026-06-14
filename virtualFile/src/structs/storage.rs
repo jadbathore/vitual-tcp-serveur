@@ -5,15 +5,9 @@ use std::{
 use blake3::Hash;
 use futures::io;
 use tokio::{fs::{self,File}, io::AsyncWriteExt}; 
-use std::ops::Deref;
 use commun_utils_handler::fs_strategies::LARGE_FILE;
 
-use crate::{general::{BoxFuture, ReadSender}, runtime::FakeToSubPath, structs::async_strategies::FileAsyncReader};
-
-
-
-trait VersionningData {}
-
+use crate::general::BoxFuture;
 
 pub struct HashData {
     data:Vec<u8>,
@@ -27,11 +21,7 @@ impl HashData {
     }
 }
 
-
-impl VersionningData for Vec<u8> {}
-impl VersionningData for Hash {}
-
-pub trait StorageStrategies where Self:AsRef<Path>
+pub trait StorageStrategies where Self:AsRef<Path> + Send + Sync
 {
     fn init_data_storage<'path>(self:Arc<Self>)->BoxFuture<'path,Result<File,io::Error>>;
     
@@ -42,8 +32,6 @@ pub trait StorageStrategies where Self:AsRef<Path>
             Ok(())
         })
     }
-
-
 
     fn versionning<'path>(self:Arc<Self>,file:&'path mut File,data:HashData)->BoxFuture<'path,Result<(),io::Error>>;
 
@@ -133,55 +121,50 @@ impl<'path> StorageStrategies for HashContainerFile {
             let mut pathbuf = self.as_ref().as_ref().to_path_buf();
             pathbuf.pop();
             pathbuf.push(Path::new(&data.hash.to_hex().to_string()));
-            self.push_data(file, data.data);
+            self.push_data(file, data.data).await?;
             Ok(())
         })
     }
 }
 
 
-pub struct StorageStrategy<'path>{
-    strat:Arc<dyn StorageStrategies + 'path> 
+
+pub enum StorageType {
+    Normal,
+    Hashed
 }
 
 
-impl<'path> StorageStrategy<'path>{
-    pub fn new(path:&'path Path,predicate:usize)->Self
+impl From<usize> for StorageType {
+    fn from(value: usize) -> Self {
+        match value {
+            x if x <= LARGE_FILE as usize => StorageType::Normal,
+            _ => StorageType::Hashed
+        }
+    }
+}
+
+impl From<StorageType> for StorageStrategy {
+    fn from(value: StorageType) -> Self {
+        StorageStrategy { type_storage: value }
+    }
+}
+
+pub struct StorageStrategy{
+    type_storage:StorageType
+}
+
+impl StorageStrategy {
+
+    pub async fn get_dyn_storage_strategy<'path>(&self,path: &'path Path)-> Box<Arc<dyn StorageStrategies + 'path>>
     {
-        let arc:Arc<dyn StorageStrategies + 'path>  = match predicate {
-            x if x <= LARGE_FILE as usize => Arc::from(NormalFile::from(path)),
-            _ => Arc::from(HashContainerFile::from(path))
+        let binder:Arc<dyn StorageStrategies + 'path> = match self.type_storage {
+            StorageType::Normal => Arc::from(NormalFile::from(path)),
+            StorageType::Hashed => Arc::from(HashContainerFile::from(path))
         };
-        StorageStrategy { strat: arc }
-
-    }
-    
-    pub async fn storage_strategy(&'path self)->Result<File, std::io::Error>
-    {
-        self.strat.clone().init_data_storage().await
-    }
-
-    pub async fn versionning(&'path self,file:&'path mut File, data:HashData)->Result<(), std::io::Error>
-    {
-        self.strat.clone().versionning(file, data).await;
-        Ok(())
+        Box::new(binder)
     }
 
 }
-
-
-
-
-
-
-// pub async fn storage_strategy<'path>(path:&'path Path,predicate:usize)->Result<File, std::io::Error>
-// {
-//     let storage_type:Arc<dyn StorageStrategies> = get_dyn_storage_strategy(path, predicate);
-//     storage_type.init_data_storage().await 
-// }
-
-
-
-
 
 //-------------------------------------------------------------------------
